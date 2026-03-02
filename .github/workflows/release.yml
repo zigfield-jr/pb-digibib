@@ -1,0 +1,36 @@
+on:
+  push:
+    branches:
+      - main
+
+name: Release
+
+jobs:
+  release:
+    runs-on: ubuntu-slim
+    timeout-minutes: 1
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: master
+
+      - run: zig build --summary all --release=small
+
+      - run: echo zig version "$(zig version)" > ${{ github.workspace }}-CHANGELOG.txt
+
+      - run: zip -r ${{ github.event.repository.name }}.zip .
+        working-directory: zig-out
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            zig-out/${{ github.event.repository.name }}.zip
+          body_path: ${{ github.workspace }}-CHANGELOG.txt
+          prerelease: true
+          tag_name: latest
+          name: Latest
+          token: ${{ secrets.GITHUB_TOKEN }}
