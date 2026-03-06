@@ -13,7 +13,7 @@ pub fn cp1252ToUtf8Alloc(allocator: std.mem.Allocator, cp1252: []const u8) std.u
 
 pub fn toCodepoint(c: u8) u16 {
     return switch (c) {
-    // https://en.wikipedia.org/wiki/Windows-1252
+        // https://en.wikipedia.org/wiki/Windows-1252
         0x80 => 0x20ac,
         0x82 => 0x201a,
         0x83 => 0x0192,

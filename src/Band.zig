@@ -2,6 +2,8 @@ const std = @import("std");
 const dbp = @import("DBPage.zig");
 const helper = @import("Helper.zig");
 const cp1252 = @import("enc/cp1252.zig");
+const dbil = @import("DBImageLoader.zig");
+const dbis = @import("DBImageSet.zig");
 
 pub const Band = struct {
 
@@ -10,10 +12,13 @@ pub const Band = struct {
     path: []u8 = undefined,
     name: []u8 = undefined,
     data: []u8 = undefined,
+    images: []u8 = undefined,
+
     digibib_path: []u8 = undefined,
     textDKI_path: []u8 = undefined,
     //    NSString* treeDKI_path;
     //    NSString* treeDKA_path;
+    imageLib_path: []u8 = undefined,
 
     // digigbib.txt
 
@@ -31,13 +36,8 @@ pub const Band = struct {
     //    NSArray *directoryTree;
     //    NSMutableArray* treeArray;
     //    int linesInTree;
-    //
-    //    NSMutableDictionary* imageDict;  // alle Bilder auch die hidden
-    //    NSMutableArray* imageArray;   // nur die bilder welche nicht hidden sind!
-    //    NSMutableArray* hiddenImageArray;
-    //    NSArray *imageLocatorArray;
-    //    int totalImages;
-    //    BOOL imageMagic;
+
+    imageDict: std.StringHashMap(dbis.DBImageSet) = undefined,
 
     pub fn deinit(self: *Band) void {
         std.heap.c_allocator.free(self.caption);
@@ -76,7 +76,14 @@ pub const Band = struct {
         try self.loadTextTable();
 
         //    [self loadTreeTable];
-        //    [DBImageLoader loadImageTable:self];
+
+        self.imageDict = .init(std.heap.c_allocator);
+        if (self.imageLib_path.len != 0) {
+            const imageArray = try dbil.loadImageTable(std.heap.c_allocator, self.path, self.name, self.images, self.imageLib_path);
+            for (imageArray) |imageSet| {
+                try self.imageDict.put(imageSet.imageFilename, imageSet);
+            }
+        }
     }
 
     /// Caller owns returned memory.

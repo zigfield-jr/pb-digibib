@@ -234,7 +234,7 @@ pub fn displayPage() void {
     defer page.deinit();
 
     c.ClearScreen();
-    page.displayPageInView() catch {
+    page.displayPageInView(current_volume.imageDict) catch {
         _ = c.Message(1, "", "error rendering previous page", 500);
         return;
     };

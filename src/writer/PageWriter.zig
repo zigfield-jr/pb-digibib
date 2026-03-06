@@ -65,21 +65,51 @@ pub fn setX(x_relative: f32) void {
     x += @intFromFloat(text_width * x_relative);
 }
 
-pub fn image(width_relative: f32) void {
+pub fn image(width_relative: f32, rawImage: []const u8) void {
     const text_width: f32 = @floatFromInt(c.ScreenWidth() - border_left_right * 2);
     const image_width: i32 = @intFromFloat(text_width * width_relative);
-    const image_height = @divTrunc(image_width, 3);
 
-    _ = c.DrawRect(@divTrunc(c.ScreenWidth() - border_left_right * 2 - image_width, 2), y, image_width, image_height, 0); // bilder sind immer zentriert!
+    const path = cacheImage(std.heap.c_allocator, rawImage);
+    defer std.heap.c_allocator.free(path);
+
+    const c_path = std.heap.c_allocator.dupeZ(u8, path) catch undefined;
+    defer std.heap.c_allocator.free(c_path);
+
+    const bitmap = c.LoadImageToFormat(c_path, c.kFmtRGB24);
+    if (bitmap == null) {
+        const rect_height = line_height(1.0);
+        _ = c.DrawRect(x, y, image_width, rect_height, 0);
+        y += rect_height;
+        return;
+    }
+
+    const image_height = @divTrunc(bitmap.*.height * image_width, bitmap.*.width);
+
+    _ = c.StretchBitmap(x, y, image_width, image_height, bitmap, 0);
 
     y += image_height;
 }
 
-pub fn imageInline(font_size_relative: f32) void {
-    const image_width = font_size(font_size_relative);
-    const image_height = font_size(font_size_relative);
+pub fn imageInline(font_size_relative: f32, rawImage: []const u8) void {
+    const image_height = font_size(font_size_relative * 1.1);
 
-    _ = c.DrawRect(x, y, image_width, image_height, 0);
+    const path = cacheImage(std.heap.c_allocator, rawImage);
+    defer std.heap.c_allocator.free(path);
+
+    const c_path = std.heap.c_allocator.dupeZ(u8, path) catch undefined;
+    defer std.heap.c_allocator.free(c_path);
+
+    const bitmap = c.LoadImageToFormat(c_path, c.kFmtRGB24);
+    if (bitmap == null) {
+        _ = c.DrawRect(x, y, image_height, image_height, 0);
+
+        x += image_height;
+        line_height_max = @max(line_height(font_size_relative), line_height_max);
+        return;
+    }
+
+    const image_width = @divTrunc(bitmap.*.width * image_height, bitmap.*.height);
+    _ = c.StretchBitmap(x, y, image_width, image_height, bitmap, 0);
 
     x += image_width;
     line_height_max = @max(line_height(font_size_relative), line_height_max);
@@ -131,4 +161,23 @@ pub fn font_size(fontsize: f32) i32 {
 pub fn line_height(fontsize: f32) i32 {
     const textHeight: f32 = @floatFromInt(c.ScreenHeight() - border_top - border_bottom);
     return @intFromFloat(fontsize * textHeight / 27);
+}
+
+/// Caller owns returned memory.
+fn cacheImage(allocator: std.mem.Allocator, rawImage: []const u8) []const u8 {
+    var threaded: std.Io.Threaded = .init_single_threaded;
+    const io = threaded.io();
+
+    const absolute_path = std.fs.path.join(allocator, &[_][]const u8{ c.CACHEPATH, "digibib_image_cache" }) catch undefined;
+
+    const cache_file = std.Io.Dir.createFileAbsolute(io, absolute_path, .{ .truncate = false }) catch undefined;
+    defer cache_file.close(io);
+
+    var cache_buffer: [1024]u8 = undefined;
+    var cache_writer = cache_file.writer(io, &cache_buffer);
+
+    cache_writer.interface.writeAll(rawImage) catch undefined;
+    cache_writer.flush() catch undefined;
+
+    return absolute_path;
 }

@@ -22,12 +22,21 @@ pub fn searchForDigiBib(allocator: std.mem.Allocator, absolute_path: []const u8)
                     const band: b.Band = .{
                         .path = try std.heap.c_allocator.dupe(u8, absolute_path),
                         .name = try std.heap.c_allocator.dupe(u8, object.basename),
+
+                        .images = try std.heap.c_allocator.alloc(u8, 0),
+                        .imageLib_path = try std.heap.c_allocator.alloc(u8, 0),
                     };
                     try list.append(std.heap.c_allocator, band);
                 } else if (object.depth() == 2 and std.ascii.eqlIgnoreCase(object.basename, "data")) {
                     if (list.pop()) |band| {
                         var band2 = band;
                         band2.data = try std.heap.c_allocator.dupe(u8, object.basename);
+                        try list.append(std.heap.c_allocator, band2);
+                    }
+                } else if (object.depth() == 2 and std.ascii.eqlIgnoreCase(object.basename, "images")) {
+                    if (list.pop()) |band| {
+                        var band2 = band;
+                        band2.images = try std.heap.c_allocator.dupe(u8, object.basename);
                         try list.append(std.heap.c_allocator, band2);
                     }
                 } else {
@@ -46,6 +55,12 @@ pub fn searchForDigiBib(allocator: std.mem.Allocator, absolute_path: []const u8)
                         if (list.pop()) |band| {
                             var band2 = band;
                             band2.textDKI_path = try std.heap.c_allocator.dupe(u8, object.basename);
+                            try list.append(std.heap.c_allocator, band2);
+                        }
+                    } else if (std.ascii.eqlIgnoreCase(object.basename, "images.lib")) {
+                        if (list.pop()) |band| {
+                            var band2 = band;
+                            band2.imageLib_path = try std.heap.c_allocator.dupe(u8, object.basename);
                             try list.append(std.heap.c_allocator, band2);
                         }
                     }

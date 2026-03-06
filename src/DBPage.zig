@@ -1,6 +1,7 @@
 const std = @import("std");
 const cp1252 = @import("enc/cp1252.zig");
 const vlado = @import("enc/vlado.zig");
+const dbis = @import("DBImageSet.zig");
 const writer = @import("writer/PageWriter.zig");
 // const writer = @import("writer/StubWriter.zig");
 
@@ -16,7 +17,7 @@ pub const DBPage = struct {
         std.heap.c_allocator.free(self.pageBlock);
     }
 
-    pub fn parsePageWithFontSize(self: *DBPage, _sucheaktiv: bool) !void {
+    pub fn parsePageWithFontSize(self: *DBPage, _sucheaktiv: bool, imageDict: std.StringHashMap(dbis.DBImageSet)) !void {
         writer.reset();
         writer.pager(self.textpagenumber, self.lastpagenumber);
 
@@ -84,7 +85,7 @@ pub const DBPage = struct {
                         var codepoint: u21 = undefined;
                         if (atFont == 1) {
                             codepoint = switch (data[i]) {
-                            // https://en.wikipedia.org/wiki/Wingdings
+                                // https://en.wikipedia.org/wiki/Wingdings
                                 0x26 => 0x25eb, // book
                                 0x33 => 0x25a4, // page
                                 0x41 => 0x2228, // victory
@@ -96,7 +97,7 @@ pub const DBPage = struct {
                             };
                         } else if (atFont == 2) {
                             codepoint = switch (data[i]) {
-                            // https://en.wikipedia.org/wiki/Symbol_(typeface)
+                                // https://en.wikipedia.org/wiki/Symbol_(typeface)
                                 0x2d => 0x2212, // minus
                                 0xc8 => 0x222a, // union
                                 else => data[i],
@@ -231,56 +232,38 @@ pub const DBPage = struct {
                 10 => { // atImage
                     const b1: u16 = data[i];
                     const b2: u16 = data[i + 1];
-                    const mywidth = (b2 * 256) + b1;
+                    var width: f32 = @floatFromInt((b2 * 256) + b1);
+                    width /= 1000.0;
+                    // finalwidth *= 0.85;
                     i += 4;
                     len = data[i];
                     i += 1;
 
                     if (!_sucheaktiv) {
-                        //                     FIXME implement
-                        //                     temp_data = [NSData dataWithBytes:&data[i] length:len];
-                        //                     temp_string = [[NSString alloc] initWithData:temp_data encoding:NSWindowsCP1252StringEncoding];
-                        //
-                        //                     NSDictionary* imageDict = [band imageDict];
-                        //                     DBImageSet* imageSet = [imageDict valueForKey:[[temp_string stringByDeletingPathExtension] lowercaseString]];
-                        //                     NSImage* image = [imageSet image2];
-                        //
-                        //                     NSSize size = [image size];
-                        //
-                        var finalwidth: f32 = @floatFromInt(mywidth);
-                        finalwidth /= 1000.0;
-                        finalwidth *= 0.85; // ein wenig runterskalieren!
-                        writer.image(finalwidth);
+                        var utf8_string = try cp1252.cp1252ToUtf8Alloc(std.heap.c_allocator, data[i .. i + len]);
+                        defer std.heap.c_allocator.free(utf8_string);
 
-                        //                     int newwidth = finalwidth;
-                        //
-                        //                     if (newwidth > size.width)
-                        //                     {
-                        //                         image = [imageSet image3];
-                        //                         size = [image size];
-                        //                     }
-                        //
-                        //                     int oldsize = size.width;
-                        //
-                        //                     size.width = finalwidth;
-                        //                     size.height *= (size.width / oldsize);
-                        //
-                        //                     [image setScalesWhenResized:YES];        // scalieren einschalten!
-                        //                     [image setSize:size];
-                        //
-                        //                     NSTextAttachment* attachment = [[NSTextAttachment alloc] init];
-                        //                     [(NSCell *)[attachment attachmentCell] setImage:image];
-                        //
-                        //                     [backString appendAttributedString: imageString];
-                        //                     [backString addAttribute:NSAttachmentAttributeName value:attachment range:NSMakeRange([backString length]-1,1)];
-                        //
-                        //                     myRange = NSMakeRange(zentriert,[backString length]-zentriert); // Zentriert ende!
-                        //                     [zentriertArray addObject:[NSValue valueWithRange:myRange]];
+                        if (std.mem.findLast(u8, utf8_string, ".")) |index| {
+                            utf8_string = utf8_string[0..index];
+                        }
+
+                        var write_image = true;
+                        if (imageDict.get(utf8_string)) |imageSet| {
+                            var imageSet2 = imageSet;
+
+                            const rawImage = imageSet2.rawImage2(std.heap.c_allocator) catch {
+                                write_image = false;
+                                return undefined;
+                            };
+                            defer std.heap.c_allocator.free(rawImage);
+
+                            if (write_image) {
+                                writer.image(width, rawImage);
+                            }
+                        } else {
+                            write_image = false;
+                        }
                     }
-                    //                 else  // suche aktiv
-                    //                 {
-                    //                     [backString appendAttributedString: imageString];
-                    //                 }
                 },
                 11 => { // atLink
                     len = data[i];
@@ -358,13 +341,13 @@ pub const DBPage = struct {
                 },
                 17 => { // atHochAn
                     if (!_sucheaktiv) {
-                    superscript = true;
-                    subscript = false;
+                        superscript = true;
+                        subscript = false;
                     }
                 },
                 18 => { // atHochAus
                     if (!_sucheaktiv) {
-                    superscript = false;
+                        superscript = false;
                     }
                 },
                 19 => { // atSigel
@@ -427,13 +410,13 @@ pub const DBPage = struct {
                 },
                 131 => { // atTiefAn
                     if (!_sucheaktiv) {
-                    subscript = true;
-                    superscript = false;
+                        subscript = true;
+                        superscript = false;
                     }
                 },
                 132 => { // atTiefAus
                     if (!_sucheaktiv) {
-                    subscript = false;
+                        subscript = false;
                     }
                 },
                 133 => { // atFarbe
@@ -464,36 +447,36 @@ pub const DBPage = struct {
                     i += 1;
 
                     if (!_sucheaktiv) {
-                        writer.imageInline(fontsize);
+                        var utf8_string = try cp1252.cp1252ToUtf8Alloc(std.heap.c_allocator, data[i .. i + len]);
+                        defer std.heap.c_allocator.free(utf8_string);
 
-                        //                     FIXME implement
-                        //                     temp_data = [NSData dataWithBytes:&data[i] length:len];
-                        //                     temp_string = [[NSString alloc] initWithData:temp_data encoding:NSWindowsCP1252StringEncoding];
-                        //
-                        //                     NSDictionary* imageDict = [band imageDict];
-                        //                     DBImageSet* imageSet = [imageDict valueForKey:[[temp_string stringByDeletingPathExtension] lowercaseString]];
-                        //                     NSImage* image = [imageSet image2];
-                        //                     NSSize imagesize = [image size];
-                        //
-                        //                     float finalheight = [my_font defaultLineHeightForFont] + [my_font descender];
-                        //                     int finalwidth = imagesize.width * finalheight / imagesize.height;
-                        //
-                        //                     imagesize.height = finalheight;
-                        //                     imagesize.width = finalwidth;
-                        //
-                        //                     [image setScalesWhenResized:YES];        // scalieren einschalten!
-                        //                     [image setSize:imagesize];
-                        //
-                        //                     NSTextAttachment* attachment = [[NSTextAttachment alloc] init];
-                        //                     [(NSCell *)[attachment attachmentCell] setImage:image];
-                        //
-                        //                     [backString appendAttributedString: imageString];
-                        //                     [backString addAttribute:NSAttachmentAttributeName value:attachment range:NSMakeRange([backString length]-1,1)];
+                        if (std.mem.findLast(u8, utf8_string, ".")) |index| {
+                            utf8_string = utf8_string[0..index];
+                        }
+
+                        var write_image = true;
+                        if (imageDict.get(utf8_string)) |imageSet| {
+                            var imageSet2 = imageSet;
+
+                            const rawImage = imageSet2.rawImage1(std.heap.c_allocator) catch {
+                                write_image = false;
+                                return undefined;
+                            };
+                            defer std.heap.c_allocator.free(rawImage);
+
+                            if (write_image) {
+                                writer.imageInline(fontsize, rawImage);
+                            }
+                        } else {
+                            write_image = false;
+                        }
+
+                        if (!write_image) {
+                            var utf8_char: [4]u8 = undefined;
+                            const utf8_char_length = try std.unicode.utf8Encode(0xfffc, &utf8_char);
+                            writer.write(utf8_char[0..utf8_char_length], false, bold, italic or gesperrt, superscript, subscript, linkrangebegin, underline or align_right, fontsize, farbe);
+                        }
                     }
-                    //                 else  // sind im suchmodus
-                    //                 {
-                    //                     [backString appendAttributedString: imageString];
-                    //                 }
                 },
                 135 => { // atSuchWord
                     len = data[i];
@@ -503,8 +486,8 @@ pub const DBPage = struct {
                     //                 [self addToWordList:temp_string Range:NSMakeRange(0,0) AllowSplit:NO];
                 },
                 136 => { // atSG (Schriftgröße)
-                    const sg: f32 = @floatFromInt(data[i]);
-                    fontsize = sg / 100.0;
+                    fontsize = @floatFromInt(data[i]);
+                    fontsize /= 100.0;
                     i += 1;
                 },
                 137 => { // atCopyRight
@@ -529,8 +512,8 @@ pub const DBPage = struct {
                 },
                 143 => { // atHZA (halber Zeilenabstand)
                     if (!_sucheaktiv) {
-                    writer.cr(fontsize / 2);
-                }
+                        writer.cr(fontsize / 2);
+                    }
                 },
                 144 => { // atLI
                 },
@@ -543,13 +526,11 @@ pub const DBPage = struct {
                 148 => { // atSetX {offset linker rand pixel}
                     const b1: u16 = data[i];
                     const b2: u16 = data[i + 1];
-                    const temp = (b2 * 256) + b1;
+                    var xvalue: f32 = @floatFromInt((b2 * 256) + b1);
+                    xvalue /= 1000.0;
                     i += 2;
 
-                    if (temp > 0) {
-                        // FIXME implement
-                        var xvalue: f32 = @floatFromInt(temp);
-                        xvalue /= 1000.0;
+                    if (xvalue > 0) {
                         writer.setX(xvalue);
                     }
                 },
@@ -702,7 +683,7 @@ pub const DBPage = struct {
         }
     }
 
-    pub fn displayPageInView(self: *DBPage) !void {
-        try self.parsePageWithFontSize(false);
+    pub fn displayPageInView(self: *DBPage, imageDict: std.StringHashMap(dbis.DBImageSet)) !void {
+        try self.parsePageWithFontSize(false, imageDict);
     }
 };
