@@ -8,7 +8,7 @@ name: Build
 jobs:
   build:
     runs-on: ubuntu-slim
-    timeout-minutes: 1
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v6
 
