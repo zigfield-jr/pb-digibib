@@ -13,14 +13,18 @@ const border_bottom = 100;
 var x: i32 = undefined;
 var y: i32 = undefined;
 var line_height_max: i32 = undefined;
+var skip_next_cr: bool = undefined;
 
 pub fn reset() void {
     x = border_left_right;
     y = border_top;
     line_height_max = 0;
+    skip_next_cr = true;
 }
 
 pub fn write(str: []u8, spaces: bool, bold: bool, italic: bool, superscript: bool, subscript: bool, link: bool, underline: bool, font_size_relative: f32, palette_color: i32) void {
+    skip_next_cr = false;
+
     const c_str = std.heap.c_allocator.dupeZ(u8, str) catch undefined;
     defer std.heap.c_allocator.free(c_str);
 
@@ -48,6 +52,10 @@ pub fn write(str: []u8, spaces: bool, bold: bool, italic: bool, superscript: boo
 }
 
 pub fn cr(font_size_relative: f32) void {
+    if (skip_next_cr) {
+        skip_next_cr = false;
+        return;
+    }
     x = border_left_right;
     if (line_height_max == 0) {
         // _ = c.DrawRect(x, y, c.ScreenWidth() - border_left_right * 2, font_size(font_size_relative * 0.5), 0xff00);
@@ -59,6 +67,8 @@ pub fn cr(font_size_relative: f32) void {
 }
 
 pub fn setX(x_relative: f32) void {
+    skip_next_cr = false;
+
     x = border_left_right;
 
     const text_width: f32 = @floatFromInt(c.ScreenWidth() - border_left_right * 2);
@@ -66,6 +76,8 @@ pub fn setX(x_relative: f32) void {
 }
 
 pub fn image(width_relative: f32, rawImage: []const u8) void {
+    skip_next_cr = true;
+
     const text_width: f32 = @floatFromInt(c.ScreenWidth() - border_left_right * 2);
     const image_width: i32 = @intFromFloat(text_width * width_relative);
 
@@ -78,19 +90,21 @@ pub fn image(width_relative: f32, rawImage: []const u8) void {
     const bitmap = c.LoadImageToFormat(c_path, c.kFmtRGB24);
     if (bitmap == null) {
         const rect_height = line_height(1.0);
-        _ = c.DrawRect(x, y, image_width, rect_height, 0);
+        _ = c.DrawRect(border_left_right, y, image_width, rect_height, 0);
         y += rect_height;
         return;
     }
 
     const image_height = @divTrunc(bitmap.*.height * image_width, bitmap.*.width);
 
-    _ = c.StretchBitmap(x, y, image_width, image_height, bitmap, 0);
+    _ = c.StretchBitmap(border_left_right, y, image_width, image_height, bitmap, 0);
 
     y += image_height;
 }
 
 pub fn imageInline(font_size_relative: f32, rawImage: []const u8) void {
+    skip_next_cr = false;
+
     const image_height = font_size(font_size_relative * 1.1);
 
     const path = cacheImage(std.heap.c_allocator, rawImage);

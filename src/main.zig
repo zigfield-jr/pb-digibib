@@ -88,6 +88,7 @@ fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(
                         c.CloseApp();
                         return 0;
                     }
+                    current_volume.deinit();
                     selection_list_visible = true;
                     c.ClearScreen();
                     DrawLibraryHeader();

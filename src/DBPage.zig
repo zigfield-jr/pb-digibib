@@ -234,24 +234,23 @@ pub const DBPage = struct {
                     const b2: u16 = data[i + 1];
                     var width: f32 = @floatFromInt((b2 * 256) + b1);
                     width /= 1000.0;
-                    // finalwidth *= 0.85;
                     i += 4;
                     len = data[i];
                     i += 1;
 
                     if (!_sucheaktiv) {
-                        var utf8_string = try cp1252.cp1252ToUtf8Alloc(std.heap.c_allocator, data[i .. i + len]);
-                        defer std.heap.c_allocator.free(utf8_string);
+                        var ascii_string = try std.ascii.allocLowerString(std.heap.c_allocator, data[i .. i + len]);
+                        defer std.heap.c_allocator.free(ascii_string);
 
-                        if (std.mem.findLast(u8, utf8_string, ".")) |index| {
-                            utf8_string = utf8_string[0..index];
+                        if (std.mem.findLast(u8, ascii_string, ".")) |index| {
+                            ascii_string = ascii_string[0..index];
                         }
 
                         var write_image = true;
-                        if (imageDict.get(utf8_string)) |imageSet| {
+                        if (imageDict.get(ascii_string)) |imageSet| {
                             var imageSet2 = imageSet;
 
-                            const rawImage = imageSet2.rawImage2(std.heap.c_allocator) catch {
+                            const rawImage = imageSet2.small(std.heap.c_allocator) catch {
                                 write_image = false;
                                 return undefined;
                             };
@@ -447,18 +446,18 @@ pub const DBPage = struct {
                     i += 1;
 
                     if (!_sucheaktiv) {
-                        var utf8_string = try cp1252.cp1252ToUtf8Alloc(std.heap.c_allocator, data[i .. i + len]);
-                        defer std.heap.c_allocator.free(utf8_string);
+                        var ascii_string = try std.ascii.allocLowerString(std.heap.c_allocator, data[i .. i + len]);
+                        defer std.heap.c_allocator.free(ascii_string);
 
-                        if (std.mem.findLast(u8, utf8_string, ".")) |index| {
-                            utf8_string = utf8_string[0..index];
+                        if (std.mem.findLast(u8, ascii_string, ".")) |index| {
+                            ascii_string = ascii_string[0..index];
                         }
 
                         var write_image = true;
-                        if (imageDict.get(utf8_string)) |imageSet| {
+                        if (imageDict.get(ascii_string)) |imageSet| {
                             var imageSet2 = imageSet;
 
-                            const rawImage = imageSet2.rawImage1(std.heap.c_allocator) catch {
+                            const rawImage = imageSet2.small(std.heap.c_allocator) catch {
                                 write_image = false;
                                 return undefined;
                             };

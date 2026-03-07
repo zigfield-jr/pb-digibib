@@ -23,71 +23,50 @@ pub fn loadImageTable(allocator: std.mem.Allocator, path: []const u8, name: []co
         _ = try images_reader.interface.takeInt(u32, .little);
     }
 
-    const totalImages = try images_reader.interface.takeInt(u32, .little);
+    const total_images = try images_reader.interface.takeInt(u32, .little);
     const textstart = try images_reader.interface.takeInt(u32, .little);
     _ = try images_reader.seekBy(16);
 
-    const imageArray = try allocator.alloc(dbis.DBImageSet, totalImages);
+    const image_array = try allocator.alloc(dbis.DBImageSet, total_images);
 
-    const path_dupe = try std.heap.c_allocator.dupe(u8, absolute_path);
-    for (0..totalImages) |i| {
-        imageArray[i].path = path_dupe;
+    for (0..total_images) |i| {
+        image_array[i].path = try std.heap.c_allocator.dupe(u8, absolute_path);
 
-        const imageFilename = try readImageFilename(std.heap.c_allocator, &images_reader);
-        defer std.heap.c_allocator.free(imageFilename);
-
-        imageArray[i].imageFilename = try std.heap.c_allocator.dupe(u8, imageFilename);
-        imageArray[i].hidden = try images_reader.interface.takeByte() != 0;
-        imageArray[i].pageNumber = try images_reader.interface.takeInt(u32, .little);
+        image_array[i].image_filename = try readImageFilename(std.heap.c_allocator, &images_reader);
+        _ = try images_reader.interface.takeByte() != 0; // hidden
+        image_array[i].page_number = try images_reader.interface.takeInt(u32, .little);
 
         try readImageDescription(&images_reader, textstart);
         try readImageDescription(&images_reader, textstart);
 
-        for (1..6) |j| {
-            const weite = try images_reader.interface.takeInt(u16, .little);
-            const hoehe = try images_reader.interface.takeInt(u16, .little);
-            const adresse = try images_reader.interface.takeInt(u32, .little);
-            const imagesize = try images_reader.interface.takeInt(u32, .little);
-            const imageType = try images_reader.interface.takeByte();
+        for (0..5) |j| {
+            const image_width = try images_reader.interface.takeInt(u16, .little);
+            const image_height = try images_reader.interface.takeInt(u16, .little);
+            const image_address = try images_reader.interface.takeInt(u32, .little);
+            const image_size = try images_reader.interface.takeInt(u32, .little);
+            _ = try images_reader.interface.takeByte(); // image_type
 
-            if (weite > 0 and hoehe > 0) {
-                switch (j) {
-                    1 => {
-                        imageArray[i].imageAddress1 = adresse;
-                        imageArray[i].imageSize1 = imagesize;
-                        imageArray[i].imageType1 = imageType;
-                    },
-                    2 => {
-                        imageArray[i].imageAddress2 = adresse;
-                        imageArray[i].imageSize2 = imagesize;
-                        imageArray[i].imageType2 = imageType;
-                    },
-                    3 => {
-                        imageArray[i].imageAddress3 = adresse;
-                        imageArray[i].imageSize3 = imagesize;
-                        imageArray[i].imageType3 = imageType;
-                    },
-                    else => {},
-                }
+            if (j < 3 and image_width > 0 and image_height > 0) {
+                image_array[i].image_address[j] = image_address;
+                image_array[i].image_size[j] = image_size;
+                // image_array[i].image_type[j] = image_type;
             }
         }
     }
 
-    return imageArray;
+    return image_array;
 }
 
 /// Caller owns returned memory.
-fn readImageFilename(allocator: std.mem.Allocator, reader: *std.Io.File.Reader) ![]const u8 {
-    const namelen = try reader.interface.takeByte();
-    const myImageNameData = try reader.interface.take(8);
-    return try cp1252.cp1252ToUtf8Alloc(allocator, myImageNameData[0..namelen]);
+fn readImageFilename(allocator: std.mem.Allocator, reader: *std.Io.File.Reader) ![]u8 {
+    const length = try reader.interface.takeByte();
+    const data = try reader.interface.take(8);
+    return try std.ascii.allocLowerString(allocator, data[0..length]);
 }
 
 fn readImageDescription(reader: *std.Io.File.Reader, _: u32) !void {
-    // const textdesc1
-    _ = try reader.interface.takeInt(u32, .little);
-    // const textdesclength1
-    _ = try reader.interface.takeInt(u32, .little);
+    _ = try reader.interface.takeInt(u32, .little); // textdesc1
+    _ = try reader.interface.takeInt(u32, .little); // textdesclength1
 
     // if (textdesclength1 > 0)
     // {

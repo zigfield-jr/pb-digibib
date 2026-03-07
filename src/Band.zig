@@ -37,10 +37,19 @@ pub const Band = struct {
     //    NSMutableArray* treeArray;
     //    int linesInTree;
 
+    imageArray: []dbis.DBImageSet = undefined,
     imageDict: std.StringHashMap(dbis.DBImageSet) = undefined,
 
     pub fn deinit(self: *Band) void {
         std.heap.c_allocator.free(self.caption);
+        std.heap.c_allocator.free(self.texttab);
+
+        for (self.imageArray) |imageSet| {
+            var imageSet2 = imageSet;
+            imageSet2.deinit();
+        }
+
+        self.imageDict.deinit();
     }
 
     pub fn initWithPath(self: *Band) !void {
@@ -79,10 +88,12 @@ pub const Band = struct {
 
         self.imageDict = .init(std.heap.c_allocator);
         if (self.imageLib_path.len != 0) {
-            const imageArray = try dbil.loadImageTable(std.heap.c_allocator, self.path, self.name, self.images, self.imageLib_path);
-            for (imageArray) |imageSet| {
-                try self.imageDict.put(imageSet.imageFilename, imageSet);
+            self.imageArray = try dbil.loadImageTable(std.heap.c_allocator, self.path, self.name, self.images, self.imageLib_path);
+            for (self.imageArray) |imageSet| {
+                try self.imageDict.put(imageSet.image_filename, imageSet);
             }
+        } else {
+            self.imageArray = try std.heap.c_allocator.alloc(dbis.DBImageSet, 0);
         }
     }
 
@@ -179,7 +190,7 @@ pub const Band = struct {
         }
 
         // read some bytes from the TOC of the text.dki file
-        self.texttab = try readblock(4, &file_reader);
+        self.texttab = try readblock(std.heap.c_allocator, 4, &file_reader);
         self.lastpagenumber = @intCast(self.texttab.len);
         self.lastpagenumber -= 1;
     }
@@ -274,7 +285,7 @@ pub const Band = struct {
     //    }
 
     /// Caller owns returned memory.
-    fn readblock(countersize: u8, reader: *std.Io.File.Reader) ![]u32 {
+    fn readblock(allocator: std.mem.Allocator, countersize: u8, reader: *std.Io.File.Reader) ![]u32 {
         var pointercounter: u32 = 1; // this is lastpagenumber + 1
 
         if (countersize == 2) { // zwei byte zeiger < 64k Seiten
@@ -285,7 +296,7 @@ pub const Band = struct {
             return ReadBlockError.PointercounterNotTwoOrFour;
         }
 
-        var block = try std.heap.c_allocator.alloc(u32, @intCast(pointercounter));
+        var block = try allocator.alloc(u32, @intCast(pointercounter));
         for (0..@intCast(pointercounter)) |i| {
             block[i] = try reader.interface.takeInt(u32, .little);
         }
