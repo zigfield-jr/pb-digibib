@@ -177,32 +177,27 @@ pub const Band = struct {
         const absolute_path = try std.fs.path.join(std.heap.c_allocator, &[_][]const u8{ self.path, self.name, self.data, self.textDKI_path });
         defer std.heap.c_allocator.free(absolute_path);
 
-        const textdkihandle = try std.Io.Dir.openFileAbsolute(io, absolute_path, .{ .mode = .read_only });
-        defer textdkihandle.close(io);
+        const text_file = try std.Io.Dir.openFileAbsolute(io, absolute_path, .{ .mode = .read_only });
+        defer text_file.close(io);
 
-        var file_buffer: [1024]u8 = undefined;
-        var file_reader = textdkihandle.reader(io, &file_buffer);
-        self.magic = try helper.isMagic(&file_reader);
+        var text_buffer: [1024]u8 = undefined;
+        var text_reader = text_file.reader(io, &text_buffer);
+        self.magic = try helper.isMagic(&text_reader);
         if (!self.magic) {
-            _ = try file_reader.seekTo(0);
+            _ = try text_reader.seekTo(0);
         } else {
-            _ = try file_reader.interface.takeInt(u32, .little);
+            _ = try text_reader.interface.takeInt(u32, .little);
         }
 
         // read some bytes from the TOC of the text.dki file
-        self.texttab = try readblock(std.heap.c_allocator, 4, &file_reader);
+        self.texttab = try readblock(std.heap.c_allocator, 4, &text_reader);
         self.lastpagenumber = @intCast(self.texttab.len);
         self.lastpagenumber -= 1;
     }
 
-    pub fn textPageData(self: *Band, _seite: i32) !dbp.DBPage {
+    pub fn textPageData(self: *Band, textpagenumber: i32) !dbp.DBPage {
         var threaded: std.Io.Threaded = .init_single_threaded;
         const io = threaded.io();
-
-        var atomCount: i64 = 0;
-        var wordCount: i64 = 0;
-
-        var pageAddress: u64 = 0;
 
         if (
         // treetab == 0 ||
@@ -210,36 +205,37 @@ pub const Band = struct {
             std.debug.print("Text- and/or TreeTable is not initialized!\n", .{});
         }
 
-        pageAddress = (self.texttab[@intCast(_seite - 1)]);
+        const page_address: u64 = self.texttab[@intCast(textpagenumber - 1)];
 
         const absolute_path = try std.fs.path.join(std.heap.c_allocator, &[_][]const u8{ self.path, self.name, self.data, self.textDKI_path });
         defer std.heap.c_allocator.free(absolute_path);
 
-        const textdkihandle = try std.Io.Dir.openFileAbsolute(io, absolute_path, .{ .mode = .read_only });
-        defer textdkihandle.close(io);
+        const text_file = try std.Io.Dir.openFileAbsolute(io, absolute_path, .{ .mode = .read_only });
+        defer text_file.close(io);
 
-        var file_buffer: [4096]u8 = undefined;
-        var file_reader = textdkihandle.reader(io, &file_buffer);
-        _ = try file_reader.seekTo(pageAddress);
+        var text_buffer: [16384]u8 = undefined; // DB001 page 38809 is 8519 bytes
+        var text_reader = text_file.reader(io, &text_buffer);
+        _ = try text_reader.seekTo(page_address);
 
-        var pagesize = try file_reader.interface.takeInt(u16, .little);
-
+        var page_size: u16 = try text_reader.interface.takeInt(u16, .little);
+        var atom_count: u16 = 0;
+        var word_count: u16 = 0;
         if (self.magic) {
-            atomCount = try file_reader.interface.takeInt(u16, .little);
-            wordCount = try file_reader.interface.takeInt(u16, .little);
+            atom_count = try text_reader.interface.takeInt(u16, .little);
+            word_count = try text_reader.interface.takeInt(u16, .little);
         } else {
-            pagesize -= 2;
+            page_size -= 2;
         }
 
-        const mem = try file_reader.interface.take(pagesize);
+        const mem = try text_reader.interface.take(page_size);
 
         return dbp.DBPage{
-            .pageBlock = try std.heap.c_allocator.dupe(u8, mem),
-            .textpagenumber = _seite,
+            .page_block = try std.heap.c_allocator.dupe(u8, mem),
+            .textpagenumber = textpagenumber,
             .lastpagenumber = self.lastpagenumber,
-            .atomCount = atomCount,
-            .wordCount = wordCount,
-            .hexaddress = pageAddress,
+            .atom_count = atom_count,
+            .word_count = word_count,
+            .hexaddress = page_address,
         };
     }
 

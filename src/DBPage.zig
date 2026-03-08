@@ -8,13 +8,13 @@ const writer = @import("writer/PageWriter.zig");
 pub const DBPage = struct {
     textpagenumber: i32 = undefined,
     lastpagenumber: i32 = undefined,
-    atomCount: i64 = undefined,
-    wordCount: i64 = undefined,
+    atom_count: u16 = undefined,
+    word_count: u16 = undefined,
     hexaddress: u64 = undefined,
-    pageBlock: []u8 = undefined,
+    page_block: []u8 = undefined,
 
     pub fn deinit(self: *DBPage) void {
-        std.heap.c_allocator.free(self.pageBlock);
+        std.heap.c_allocator.free(self.page_block);
     }
 
     pub fn parsePageWithFontSize(self: *DBPage, _sucheaktiv: bool, imageDict: std.StringHashMap(dbis.DBImageSet)) !void {
@@ -47,7 +47,7 @@ pub const DBPage = struct {
 
         var num_tokens: i32 = 0;
         var oldtoken: i32 = -9999;
-        var data: []u8 = self.pageBlock;
+        var data: []u8 = self.page_block;
         var page_end: bool = false;
         var i: usize = 0;
 
@@ -666,18 +666,18 @@ pub const DBPage = struct {
             oldtoken = token;
 
             i += len;
-            if (i >= self.pageBlock.len) {
+            if (i >= self.page_block.len) {
                 // std.debug.print("pageblock ende: {d}\n", .{i});
                 page_end = true;
             }
         }
 
         if (!_sucheaktiv) {
-            if (i != self.pageBlock.len) {
-                std.debug.print("i = {d} size = {d}", .{ i, self.pageBlock.len });
+            if (i != self.page_block.len) {
+                std.debug.print("i = {d} size = {d}\n", .{ i, self.page_block.len });
             }
-            if (self.atomCount != num_tokens and self.atomCount != 0) {
-                std.debug.print("num_tokens = {d} soll_tokens = {d}", .{ num_tokens, self.atomCount });
+            if (self.atom_count != num_tokens and self.atom_count != 0) {
+                std.debug.print("num_tokens = {d} soll_tokens = {d}\n", .{ num_tokens, self.atom_count });
             }
         }
     }
