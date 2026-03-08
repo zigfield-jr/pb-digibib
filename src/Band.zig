@@ -157,10 +157,10 @@ pub const Band = struct {
                         self.minor = try std.fmt.parseInt(i32, second, 10);
                     }
                     if (default_group and std.mem.eql(u8, first, "Caption")) {
-                        const caption_encoded = try std.heap.c_allocator.dupe(u8, second);
-                        defer std.heap.c_allocator.free(caption_encoded);
+                        const caption_utf8 = try cp1252.cp1252ToUtf8Alloc(std.heap.c_allocator, second);
+                        defer std.heap.c_allocator.free(caption_utf8);
 
-                        self.caption = try cp1252.cp1252ToUtf8Alloc(std.heap.c_allocator, caption_encoded);
+                        self.caption = try std.mem.replaceOwned(u8, std.heap.c_allocator, caption_utf8, ": ", ":\n");
                     }
                 } else {
                     default_group = std.mem.eql(u8, first, "[Default]");
@@ -213,7 +213,7 @@ pub const Band = struct {
         const text_file = try std.Io.Dir.openFileAbsolute(io, absolute_path, .{ .mode = .read_only });
         defer text_file.close(io);
 
-        var text_buffer: [16384]u8 = undefined; // DB001 page 38809 is 8519 bytes
+        var text_buffer: [1024]u8 = undefined;
         var text_reader = text_file.reader(io, &text_buffer);
         _ = try text_reader.seekTo(page_address);
 
@@ -227,10 +227,10 @@ pub const Band = struct {
             page_size -= 2;
         }
 
-        const mem = try text_reader.interface.take(page_size);
+        const page_block = try text_reader.interface.readAlloc(std.heap.c_allocator, page_size);
 
         return dbp.DBPage{
-            .page_block = try std.heap.c_allocator.dupe(u8, mem),
+            .page_block = page_block,
             .textpagenumber = textpagenumber,
             .lastpagenumber = self.lastpagenumber,
             .atom_count = atom_count,

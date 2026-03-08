@@ -30,14 +30,10 @@ pub const DBImageSet = struct {
         const images_file = try std.Io.Dir.openFileAbsolute(io, self.path, .{ .mode = .read_only });
         defer images_file.close(io);
 
-        const images_buffer = try std.heap.c_allocator.alloc(u8, size);
-        defer std.heap.c_allocator.free(images_buffer);
-
-        var images_reader = images_file.reader(io, images_buffer);
+        var images_buffer: [1024]u8 = undefined;
+        var images_reader = images_file.reader(io, &images_buffer);
 
         _ = try images_reader.seekTo(address);
-        const mem = try images_reader.interface.take(size);
-
-        return try allocator.dupe(u8, mem);
+        return try images_reader.interface.readAlloc(allocator, size);
     }
 };
