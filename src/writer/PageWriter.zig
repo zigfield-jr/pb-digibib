@@ -38,6 +38,7 @@ pub fn write(str: []u8, spaces: bool, bold: bool, italic: bool, superscript: boo
     const color = if (link) link_color else palette_color;
     c.SetFont(font, color);
 
+    _ = c.FillArea(x, y, str_width, line_height(font_size_relative), c.WHITE); // cover pager
     // _ = c.DrawRect(x, y + border_top_script, str_width, font_size_script, 0xff0000);
     if (underline) {
         _ = c.FillArea(x, y + font_size(font_size_relative), str_width, font_size(font_size_relative * 0.05), color);
@@ -129,7 +130,7 @@ pub fn imageInline(font_size_relative: f32, rawImage: []const u8) void {
     line_height_max = @max(line_height(font_size_relative), line_height_max);
 }
 
-pub fn pager(current_page: i32, total_pages: i32) void {
+pub fn pager(current_page: u32, total_pages: u32) void {
     const font = c.OpenFont("DejaVuSerif", font_size(0.85), 1);
     const icon = c.ibitmap{};
     var ipager = c.ipager{
@@ -143,8 +144,8 @@ pub fn pager(current_page: i32, total_pages: i32) void {
         // .separator_color = c.LGRAY,
         .icon_left = &icon,
         .icon_right = &icon,
-        .current_page = current_page,
-        .total_pages = total_pages,
+        .current_page = @intCast(current_page),
+        .total_pages = @intCast(total_pages),
         .position = c.irect{
             .x = @divTrunc(c.ScreenWidth() - 600, 2),
             .y = c.ScreenHeight() - border_bottom,

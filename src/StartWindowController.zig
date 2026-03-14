@@ -57,6 +57,18 @@ pub fn searchForDigiBib(allocator: std.mem.Allocator, absolute_path: []const u8)
                             band2.textDKI_path = try std.heap.c_allocator.dupe(u8, object.basename);
                             try list.append(std.heap.c_allocator, band2);
                         }
+                    } else if (std.ascii.eqlIgnoreCase(object.basename, "tree.dki")) {
+                        if (list.pop()) |band| {
+                            var band2 = band;
+                            band2.treeDKI_path = try std.heap.c_allocator.dupe(u8, object.basename);
+                            try list.append(std.heap.c_allocator, band2);
+                        }
+                    } else if (std.ascii.eqlIgnoreCase(object.basename, "tree.dka")) {
+                        if (list.pop()) |band| {
+                            var band2 = band;
+                            band2.treeDKA_path = try std.heap.c_allocator.dupe(u8, object.basename);
+                            try list.append(std.heap.c_allocator, band2);
+                        }
                     } else if (std.ascii.eqlIgnoreCase(object.basename, "images.lib")) {
                         if (list.pop()) |band| {
                             var band2 = band;

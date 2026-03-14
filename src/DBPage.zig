@@ -6,8 +6,8 @@ const writer = @import("writer/PageWriter.zig");
 // const writer = @import("writer/StubWriter.zig");
 
 pub const DBPage = struct {
-    textpagenumber: i32 = undefined,
-    lastpagenumber: i32 = undefined,
+    textpagenumber: u32 = undefined,
+    lastpagenumber: u32 = undefined,
     atom_count: u16 = undefined,
     word_count: u16 = undefined,
     hexaddress: u64 = undefined,

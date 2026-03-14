@@ -4,6 +4,7 @@ const helper = @import("Helper.zig");
 const cp1252 = @import("enc/cp1252.zig");
 const dbil = @import("DBImageLoader.zig");
 const dbis = @import("DBImageSet.zig");
+const e = @import("Entry.zig");
 
 pub const Band = struct {
 
@@ -16,8 +17,8 @@ pub const Band = struct {
 
     digibib_path: []u8 = undefined,
     textDKI_path: []u8 = undefined,
-    //    NSString* treeDKI_path;
-    //    NSString* treeDKA_path;
+    treeDKI_path: []u8 = undefined,
+    treeDKA_path: []u8 = undefined,
     imageLib_path: []u8 = undefined,
 
     // digigbib.txt
@@ -29,12 +30,11 @@ pub const Band = struct {
     // book
 
     magic: bool = undefined,
-    lastpagenumber: i32 = undefined,
+    lastpagenumber: u32 = undefined,
     texttab: []u32 = undefined, // blockpointerarray[0]
-    // var treetab : []u32 = undefined; // blockpointerarray[4]
 
     //    NSArray *directoryTree;
-    //    NSMutableArray* treeArray;
+    tree_array: []const e.Entry = undefined,
     //    int linesInTree;
 
     imageArray: []dbis.DBImageSet = undefined,
@@ -84,7 +84,7 @@ pub const Band = struct {
 
         try self.loadTextTable();
 
-        //    [self loadTreeTable];
+        try self.loadTreeTable();
 
         self.imageDict = .init(std.heap.c_allocator);
         if (self.imageLib_path.len != 0) {
@@ -138,14 +138,14 @@ pub const Band = struct {
         const absolute_path = try std.fs.path.join(std.heap.c_allocator, &[_][]const u8{ self.path, self.name, self.data, self.digibib_path });
         defer std.heap.c_allocator.free(absolute_path);
 
-        const file = try std.Io.Dir.openFileAbsolute(io, absolute_path, .{ .mode = .read_only });
-        defer file.close(io);
+        const ini_file = try std.Io.Dir.openFileAbsolute(io, absolute_path, .{ .mode = .read_only });
+        defer ini_file.close(io);
 
-        var file_buffer: [1024]u8 = undefined;
-        var file_reader = file.reader(io, &file_buffer);
+        var ini_buffer: [1024]u8 = undefined;
+        var ini_reader = ini_file.reader(io, &ini_buffer);
 
         var default_group: bool = false;
-        while (try file_reader.interface.takeDelimiter('\n')) |s| {
+        while (try ini_reader.interface.takeDelimiter('\n')) |s| {
             const line = std.mem.trimEnd(u8, s, "\r");
             var iter = std.mem.splitScalar(u8, line, '=');
             if (iter.next()) |first| {
@@ -166,11 +166,11 @@ pub const Band = struct {
                     default_group = std.mem.eql(u8, first, "[Default]");
                 }
             }
-        } else {}
+        }
     }
 
     /// checks if text.dki is readable and reads pagecount (lastpagenumber)
-    pub fn loadTextTable(self: *Band) !void {
+    fn loadTextTable(self: *Band) !void {
         var threaded: std.Io.Threaded = .init_single_threaded;
         const io = threaded.io();
 
@@ -195,14 +195,12 @@ pub const Band = struct {
         self.lastpagenumber -= 1;
     }
 
-    pub fn textPageData(self: *Band, textpagenumber: i32) !dbp.DBPage {
+    pub fn textPageData(self: *Band, textpagenumber: u32) !dbp.DBPage {
         var threaded: std.Io.Threaded = .init_single_threaded;
         const io = threaded.io();
 
-        if (
-        // treetab == 0 ||
-        self.texttab.len == 0) {
-            std.debug.print("Text- and/or TreeTable is not initialized!\n", .{});
+        if (self.texttab.len == 0) {
+            std.debug.print("Text table is not initialized!\n", .{});
         }
 
         const page_address: u64 = self.texttab[@intCast(textpagenumber - 1)];
@@ -239,46 +237,37 @@ pub const Band = struct {
         };
     }
 
-    //    -(int) loadTreeTable
-    //    {
-    //    FILE *fh = 0;
-    //
-    //    int treetablecountersize;
-    //
-    //    unsigned short wordcounter;
-    //
-    //    // erstmal die TreeLines laden damit wir die pointersize wissen!
-    //
-    //    NSLog(@"initialize Tree Array");
-    //    NSArray* temp_tree_array = [self initializeTree];
-    //
-    //    //    NSString* filename = TreeDKA_path;
-    //
-    //    NSFileHandle* myNSFileHandle = [NSFileHandle fileHandleForReadingAtPath:TreeDKA_path];
-    //    fh = fdopen([myNSFileHandle fileDescriptor],"r");
-    //
-    //    //    fh = fopen([filename cString],"r");
-    // if (fh == 0) NSLog (@"file open error!");
-    //
-    //    //    stat([filename cString],&sb);
-    //    //    NSLog(@"Size in Bytes : %qd",sb.st_size);
-    //
-    //    treetablecountersize = 2;
-    //    if ([temp_tree_array count] > 65535) treetablecountersize = 4;
-    //
-    //    //    NSLog (@"treetablecountersize: %d",treetablecountersize);
-    //
-    //    wordcounter = readblock(treetablecountersize,fh,1,blockpointerarray);
-    //    wordcounter = readblock(treetablecountersize,fh,2,blockpointerarray);
-    //    wordcounter = readblock(treetablecountersize,fh,3,blockpointerarray);
-    //    wordcounter = readblock(treetablecountersize,fh,4,blockpointerarray);
-    //
-    //    fclose (fh);
-    //
-    //    [myNSFileHandle closeFile];
-    //
-    //    return 0;
-    //    }
+    fn loadTreeTable(self: *Band) !void {
+        var tree_array = try self.initializeTree(std.heap.c_allocator);
+
+        var threaded: std.Io.Threaded = .init_single_threaded;
+        const io = threaded.io();
+
+        const absolute_path = try std.fs.path.join(std.heap.c_allocator, &[_][]const u8{ self.path, self.name, self.data, self.treeDKA_path });
+        defer std.heap.c_allocator.free(absolute_path);
+
+        const tree_file = try std.Io.Dir.openFileAbsolute(io, absolute_path, .{ .mode = .read_only });
+        defer tree_file.close(io);
+
+        var tree_buffer: [1024]u8 = undefined;
+        var tree_reader = tree_file.reader(io, &tree_buffer);
+
+        const treetablecountersize: u8 = if (tree_array.len > std.math.maxInt(u16)) 4 else 2;
+
+        _ = try readblock(std.heap.c_allocator, treetablecountersize, &tree_reader);
+        _ = try readblock(std.heap.c_allocator, treetablecountersize, &tree_reader);
+        _ = try readblock(std.heap.c_allocator, treetablecountersize, &tree_reader);
+        const tree_table = try readblock(std.heap.c_allocator, treetablecountersize, &tree_reader);
+
+        if (tree_array.len == tree_table.len) {
+            for (tree_array, 0..) |_, i| {
+                tree_array[i].textpagenumber = tree_table[i];
+            }
+            self.tree_array = tree_array;
+        } else {
+            self.tree_array = try std.heap.c_allocator.alloc(e.Entry, 0);
+        }
+    }
 
     /// Caller owns returned memory.
     fn readblock(allocator: std.mem.Allocator, countersize: u8, reader: *std.Io.File.Reader) ![]u32 {
@@ -299,78 +288,37 @@ pub const Band = struct {
 
         return block;
     }
+
+    fn initializeTree(self: *Band, allocator: std.mem.Allocator) ![]e.Entry {
+        var threaded: std.Io.Threaded = .init_single_threaded;
+        const io = threaded.io();
+
+        const absolute_path = try std.fs.path.join(std.heap.c_allocator, &[_][]const u8{ self.path, self.name, self.data, self.treeDKI_path });
+        defer std.heap.c_allocator.free(absolute_path);
+
+        const tree_file = try std.Io.Dir.openFileAbsolute(io, absolute_path, .{ .mode = .read_only });
+        defer tree_file.close(io);
+
+        var tree_buffer: [1024]u8 = undefined;
+        var tree_reader = tree_file.reader(io, &tree_buffer);
+
+        var tree_list: std.ArrayList(e.Entry) = .empty;
+        defer tree_list.deinit(std.heap.c_allocator);
+
+        var linenumber: u32 = 1;
+        while (try tree_reader.interface.takeDelimiter('\n')) |line| {
+            linenumber += 1;
+            const line_trim = std.mem.trimStart(u8, line, " ");
+            const linelevel: u8 = @intCast(line.len - line_trim.len);
+            try tree_list.append(std.heap.c_allocator, e.Entry{
+                .name = try cp1252.cp1252ToUtf8Alloc(std.heap.c_allocator, line_trim),
+                .level = linelevel,
+                .link_number = linenumber,
+            });
+        }
+
+        return try tree_list.toOwnedSlice(allocator);
+    }
 };
 
 const ReadBlockError = error{PointercounterNotTwoOrFour};
-
-// -(NSArray*)initializeTree;
-// {
-//     int lastlevel = 0;
-//     int linelevel = 1;
-//     int linenumber = 1;
-//     int n;
-//
-//     NSEnumerator *enu;
-//     NSString* line;
-//
-//     Entry* parent = 0;
-//     Entry* myEntry;
-//
-//     NSLog(@"initializing TreeTable");
-//
-//     NSData *myData = [NSData dataWithContentsOfFile: TreeDKI_path];
-//     NSString* temp_string = [[NSString alloc] initWithData:myData encoding:NSWindowsCP1252StringEncoding];
-//
-//     NSArray* temp_tree_array = [temp_string componentsSeparatedByString:@"\n"];
-//     [temp_string release];
-//
-//     if ([temp_tree_array count] > 0)
-//     {
-//         treeArray = [[NSMutableArray alloc] initWithCapacity:[temp_tree_array count]];
-//
-//         enu = [temp_tree_array objectEnumerator];
-//         line = [enu nextObject];
-//
-//         myEntry = [[Entry alloc] initWithName:line level:linelevel linkNumber:23232323 band:self treeArrayIndex:[treeArray count]];
-//
-//         [treeArray addObject:myEntry];
-//         [treeArray addObject:myEntry];
-//
-//         parent = myEntry;
-//
-//         while (line = [enu nextObject])
-//         {
-//             if ([line length] == 0)
-//                 continue;
-//
-//             linenumber++;
-//
-//             for (linelevel = 0 ; [line characterAtIndex:linelevel] == ' ' ; linelevel++);
-//
-//             if (linelevel > lastlevel)
-//             {
-//                 parent = [parent lastChild] != nil ? [parent lastChild] : parent;
-//             }
-//             else if (linelevel < lastlevel)
-//             {
-//                 for (n = (lastlevel - linelevel); n > 0 ;n--)
-//                 {
-// //                    NSLog(@"%d,%d",linelevel,lastlevel);
-//                     parent = [parent parent];
-//                 }
-//             }
-//
-//             lastlevel = linelevel;
-//
-//             myEntry = [[Entry alloc] initWithName:line level:linelevel linkNumber:linenumber band:self treeArrayIndex:[treeArray count]];
-//
-//             [treeArray addObject:myEntry];
-//             [parent addChild:myEntry];
-//             //NSLog(@"treeentry: %@",myEntry);
-//             [myEntry release];
-//         }
-//     }
-//
-//     NSLog(@"Lines in Tree.dki: %d",linenumber);
-//     return temp_tree_array;
-// }
