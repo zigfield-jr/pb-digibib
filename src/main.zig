@@ -106,6 +106,13 @@ fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(
                 if (@abs(delta) < 100) {
                     const tree_array = current_volume.tree_array;
 
+                    for (tree_array, 0..) |entry, i| {
+                        if (current_pagenumber <= entry.textpagenumber) {
+                            _ = c.SelectionList_SetSelectedItem(toc_list, @intCast(i));
+                            break;
+                        }
+                    }
+
                     toc_list_visible = true;
                     _ = c.SelectionList_SetItemcount(toc_list, @intCast(tree_array.len));
                     _ = c.SelectionList_SetVisible(toc_list, 1);
@@ -270,7 +277,11 @@ fn libraryItemLongClicked(_: ?*anyopaque, _: c_int, _: c_int, _: c_int) callconv
 
 fn libraryScrollPositionChanged(_: ?*anyopaque, _: c_int, _: c_int) callconv(.c) void {}
 
-fn tocDraw(_: ?*anyopaque, item_num: c_int, item_rect: c.irect, _: c_int, _: c_int) callconv(.c) void {
+fn tocDraw(_: ?*anyopaque, item_num: c_int, item_rect: c.irect, is_selected: c_int, _: c_int) callconv(.c) void {
+    if (is_selected != 0) {
+        _ = c.FillAreaRect(&item_rect, c.LGRAY);
+    }
+
     const entry = current_volume.tree_array[@intCast(item_num)];
 
     const name_cstring = std.heap.c_allocator.dupeZ(u8, entry.name) catch undefined;
@@ -282,17 +293,15 @@ fn tocDraw(_: ?*anyopaque, item_num: c_int, item_rect: c.irect, _: c_int, _: c_i
     c.CloseFont(font);
 }
 
-fn tocSelectedItemChanged(_: ?*anyopaque, _: c_int) callconv(.c) void {}
+fn tocSelectedItemChanged(_: ?*anyopaque, selected_item: c_int) callconv(.c) void {
+    const entry = current_volume.tree_array[@intCast(selected_item)];
+    current_pagenumber = entry.textpagenumber;
+    displayPage();
+}
 
 fn tocItemClicked(_: ?*anyopaque, item_num: c_int, _: c_int, _: c_int) callconv(.c) void {
-    if (item_num == 0) {
-        current_pagenumber = 1;
-    } else {
-        const entry = current_volume.tree_array[@intCast(item_num - 1)];
-        current_pagenumber = entry.textpagenumber;
-    }
-
-    displayPage();
+    _ = c.SelectionList_SetSelectedItem(toc_list, item_num);
+    _ = c.SelectionList_Update(toc_list);
 }
 
 fn tocDrawStaticElements(_: ?*anyopaque, screen_rect: c.irect) callconv(.c) void {

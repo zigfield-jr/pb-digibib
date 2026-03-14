@@ -261,7 +261,7 @@ pub const Band = struct {
 
         if (tree_array.len == tree_table.len) {
             for (tree_array, 0..) |_, i| {
-                tree_array[i].textpagenumber = tree_table[i];
+                tree_array[i].textpagenumber = if (i == 0) 1 else tree_table[i - 1];
             }
             self.tree_array = tree_array;
         } else {
