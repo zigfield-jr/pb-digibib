@@ -289,9 +289,13 @@ fn tocDraw(_: ?*anyopaque, item_num: c_int, item_rect: c.irect, is_selected: c_i
     const name_cstring = std.heap.c_allocator.dupeZ(u8, entry.name) catch undefined;
     defer std.heap.c_allocator.free(name_cstring);
 
+    var page_buffer: [8]u8 = undefined;
+    const page_cstring = std.fmt.bufPrintZ(&page_buffer, "{d}", .{entry.textpagenumber}) catch undefined;
+
     const font = c.OpenFont("DejaVuSerif", writer.font_size(1.0), 1);
     c.SetFont(font, c.BLACK);
-    _ = c.DrawTextRect(item_rect.x + 40, item_rect.y, item_rect.w - 80, item_rect.h, name_cstring, c.ALIGN_LEFT | c.VALIGN_MIDDLE);
+    _ = c.DrawTextRect(item_rect.x + 40, item_rect.y, @divTrunc((item_rect.w - 80) * 4, 5), item_rect.h, name_cstring, c.ALIGN_LEFT | c.VALIGN_MIDDLE | c.DOTS);
+    _ = c.DrawTextRect(item_rect.x + 40 + @divTrunc((item_rect.w - 80) * 4, 5), item_rect.y, @divTrunc(item_rect.w - 80, 5), item_rect.h, page_cstring, c.ALIGN_RIGHT | c.VALIGN_MIDDLE);
     c.CloseFont(font);
 }
 
