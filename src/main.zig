@@ -78,7 +78,7 @@ fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(
             }
 
             if (toc_list_visible) {
-                if (event_type == c.EVT_POINTERDOWN and param_two < @divTrunc(c.ScreenHeight(), 2)) {
+                if (event_type == c.EVT_POINTERUP and param_two < @divTrunc(c.ScreenHeight(), 2)) {
                     toc_list_visible = false;
                     _ = c.SelectionList_SetVisible(toc_list, 0);
                     _ = c.SelectionList_Update(toc_list);
@@ -114,7 +114,6 @@ fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(
                     }
 
                     toc_list_visible = true;
-                    _ = c.SelectionList_SetItemcount(toc_list, @intCast(tree_array.len));
                     _ = c.SelectionList_SetVisible(toc_list, 1);
                     _ = c.SelectionList_Draw(toc_list);
                     _ = c.SelectionList_Update(toc_list);
@@ -142,7 +141,6 @@ fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(
 
                     toc_list_visible = false;
                     _ = c.SelectionList_SetVisible(toc_list, 0);
-                    _ = c.SelectionList_SetItemcount(toc_list, 0);
                     _ = c.SelectionList_Update(toc_list);
 
                     // FIXME current_volume.deinit();
@@ -265,6 +263,10 @@ fn libraryItemClicked(_: ?*anyopaque, item_num: c_int, _: c_int, _: c_int) callc
     _ = c.SelectionList_SetVisible(library_list, 0);
     _ = c.SelectionList_Update(library_list);
 
+    // init toc
+
+    _ = c.SelectionList_SetItemcount(toc_list, @intCast(current_volume.tree_array.len));
+
     // load first page
 
     current_pagenumber = 1;
@@ -293,13 +295,15 @@ fn tocDraw(_: ?*anyopaque, item_num: c_int, item_rect: c.irect, is_selected: c_i
     c.CloseFont(font);
 }
 
-fn tocSelectedItemChanged(_: ?*anyopaque, selected_item: c_int) callconv(.c) void {
-    const entry = current_volume.tree_array[@intCast(selected_item)];
-    current_pagenumber = entry.textpagenumber;
-    displayPage();
-}
+fn tocSelectedItemChanged(_: ?*anyopaque, _: c_int) callconv(.c) void {}
 
 fn tocItemClicked(_: ?*anyopaque, item_num: c_int, _: c_int, _: c_int) callconv(.c) void {
+    const entry = current_volume.tree_array[@intCast(item_num)];
+    if (current_pagenumber != entry.textpagenumber) {
+        current_pagenumber = entry.textpagenumber;
+        displayPage();
+    }
+
     _ = c.SelectionList_SetSelectedItem(toc_list, item_num);
     _ = c.SelectionList_Update(toc_list);
 }
