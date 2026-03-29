@@ -20,11 +20,12 @@ extern "C"
 
 // Log level constant
 #define PB_LOG_LEVEL_NONE 0     /// No logging at all
-#define PB_LOG_LEVEL_ERROR 1   /// Output only errors
-#define PB_LOG_LEVEL_WARNING 2  /// Output only errors and warnings
-#define PB_LOG_LEVEL_INFO 3     /// Output all messages except traces and verbose
-#define PB_LOG_LEVEL_TRACE 4    /// Output include trace messages
-#define PB_LOG_LEVEL_VERBOSE 5    /// Output all messages
+#define PB_LOG_LEVEL_CRITICAL 1   /// Output only critical errors
+#define PB_LOG_LEVEL_ERROR 2   /// Output only errors
+#define PB_LOG_LEVEL_WARNING 3  /// Output only errors and warnings
+#define PB_LOG_LEVEL_INFO 4     /// Output all messages except traces and verbose
+#define PB_LOG_LEVEL_TRACE 5    /// Output include trace messages
+#define PB_LOG_LEVEL_VERBOSE 6    /// Output all messages
 
 extern hP7_Trace g_p7_trace;
 
@@ -55,42 +56,43 @@ void pb_set_log_file(FILE* file);
  * If DEBUG is not defined P7 is used for logging instead of console
  **/
 
+#define PB_LOG_RAW_MSG(level, file, line, function, format, ...) pb_print_log2(level, file, line, function, format, ##__VA_ARGS__)
 #define PB_LOG_MSG(level, module, format, ...) pb_print_log2_with_module(level, module, __FILE__, __LINE__, __PRETTY_FUNCTION__, format, ##__VA_ARGS__)
 
 void release_logger();
-extern int g_process_pid;
+
 #ifdef TRACE_MODULE_NAME
 
-#define PB_VERBOSE(format, ...) pb_print_log2_with_module(PB_LOG_LEVEL_VERBOSE, TRACE_MODULE_NAME, __FILE__, __LINE__, __PRETTY_FUNCTION__, "[pid:%d]" format, g_process_pid, ##__VA_ARGS__)
+#define PB_VERBOSE(format, ...) pb_print_log2_with_module(PB_LOG_LEVEL_VERBOSE, TRACE_MODULE_NAME, __FILE__, __LINE__, __PRETTY_FUNCTION__, format, ##__VA_ARGS__)
 
-#define PB_TRACE(format, ...) pb_print_log2_with_module(PB_LOG_LEVEL_TRACE, TRACE_MODULE_NAME, __FILE__, __LINE__, __PRETTY_FUNCTION__, "[pid:%d]" format, g_process_pid, ##__VA_ARGS__)
+#define PB_TRACE(format, ...) pb_print_log2_with_module(PB_LOG_LEVEL_TRACE, TRACE_MODULE_NAME, __FILE__, __LINE__, __PRETTY_FUNCTION__, format, ##__VA_ARGS__)
 
-#define PB_INFO(format, ...) pb_print_log2_with_module(PB_LOG_LEVEL_INFO, TRACE_MODULE_NAME, __FILE__, __LINE__, __PRETTY_FUNCTION__, "[pid:%d]" format, g_process_pid, ##__VA_ARGS__)
+#define PB_INFO(format, ...) pb_print_log2_with_module(PB_LOG_LEVEL_INFO, TRACE_MODULE_NAME, __FILE__, __LINE__, __PRETTY_FUNCTION__, format, ##__VA_ARGS__)
 
-#define PB_WARN(format, ...) pb_print_log2_with_module(PB_LOG_LEVEL_WARNING, TRACE_MODULE_NAME, __FILE__, __LINE__, __PRETTY_FUNCTION__, "[pid:%d]" format, g_process_pid, ##__VA_ARGS__)
+#define PB_WARN(format, ...) pb_print_log2_with_module(PB_LOG_LEVEL_WARNING, TRACE_MODULE_NAME, __FILE__, __LINE__, __PRETTY_FUNCTION__, format, ##__VA_ARGS__)
 
-#define PB_ERROR(format, ...) pb_print_log2_with_module(PB_LOG_LEVEL_ERROR, TRACE_MODULE_NAME, __FILE__, __LINE__, __PRETTY_FUNCTION__, "[pid:%d]" format, g_process_pid, ##__VA_ARGS__)
+#define PB_ERROR(format, ...) pb_print_log2_with_module(PB_LOG_LEVEL_ERROR, TRACE_MODULE_NAME, __FILE__, __LINE__, __PRETTY_FUNCTION__, format, ##__VA_ARGS__)
 
 #else
 
-#define PB_VERBOSE(format, ...) pb_print_log2(PB_LOG_LEVEL_VERBOSE, __FILE__, __LINE__, __PRETTY_FUNCTION__, "[pid:%d]" format, g_process_pid, ##__VA_ARGS__)
+#define PB_VERBOSE(format, ...) pb_print_log2(PB_LOG_LEVEL_VERBOSE, __FILE__, __LINE__, __PRETTY_FUNCTION__, format, ##__VA_ARGS__)
 
-#define PB_TRACE(format, ...) pb_print_log2(PB_LOG_LEVEL_TRACE, __FILE__, __LINE__, __PRETTY_FUNCTION__, "[pid:%d]" format, g_process_pid, ##__VA_ARGS__)
+#define PB_TRACE(format, ...) pb_print_log2(PB_LOG_LEVEL_TRACE, __FILE__, __LINE__, __PRETTY_FUNCTION__, format, ##__VA_ARGS__)
 
-#define PB_INFO(format, ...) pb_print_log2(PB_LOG_LEVEL_INFO, __FILE__, __LINE__, __PRETTY_FUNCTION__, "[pid:%d]" format, g_process_pid, ##__VA_ARGS__)
+#define PB_INFO(format, ...) pb_print_log2(PB_LOG_LEVEL_INFO, __FILE__, __LINE__, __PRETTY_FUNCTION__, format, ##__VA_ARGS__)
 
-#define PB_WARN(format, ...) pb_print_log2(PB_LOG_LEVEL_WARNING, __FILE__, __LINE__, __PRETTY_FUNCTION__, "[pid:%d]" format, g_process_pid, ##__VA_ARGS__)
+#define PB_WARN(format, ...) pb_print_log2(PB_LOG_LEVEL_WARNING, __FILE__, __LINE__, __PRETTY_FUNCTION__, format, ##__VA_ARGS__)
 
-#define PB_ERROR(format, ...) pb_print_log2(PB_LOG_LEVEL_ERROR, __FILE__, __LINE__, __PRETTY_FUNCTION__, "[pid:%d]" format, g_process_pid, ##__VA_ARGS__)
+#define PB_ERROR(format, ...) pb_print_log2(PB_LOG_LEVEL_ERROR, __FILE__, __LINE__, __PRETTY_FUNCTION__, format, ##__VA_ARGS__)
 
 #endif
 
 /**
- * Next code contains macroses intended to error handling. Each of them print information about error to the log 
+ * Next code contains macroses intended to error handling. Each of them print information about error to the log
  * and then perform appropriate action.
  * There are 2 types of actions:
  * 1. Return on error. This variant suitable for C++ code which use RAII and so don't need to release resources manually
- * 2. Goto mark on error. This variant suitable for C code which usually need to perform some resource deallocation 
+ * 2. Goto mark on error. This variant suitable for C code which usually need to perform some resource deallocation
  * before returning on error. Don't use mark name "error" for this variant.
  *
  * Also there are 2 types of error detection used in macroses below:

@@ -1,9 +1,12 @@
+name: Build
+
 on:
   push:
     branches:
       - main
 
-name: Build
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
@@ -16,4 +19,4 @@ jobs:
         with:
           version: master
 
-      - run: zig build test --summary all
+      - run: zig build install test --summary all

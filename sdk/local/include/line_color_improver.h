@@ -8,7 +8,9 @@ extern "C"
 {
 #endif
 
+bool IvNeedImproveLineColor();
 void ImproveLinesColor(icanvas* fb, int x, int y, int w, int h);
+void ImproveLinesColorBW(icanvas* fb, int x, int y, int w, int h);
 void SetImproveLineColorStatus(int enabled);
 #ifdef __cplusplus
 }

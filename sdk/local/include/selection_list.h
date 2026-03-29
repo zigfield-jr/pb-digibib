@@ -47,6 +47,8 @@ void SelectionList_SetScrollPos(SelectionList* this_, int pos);
 int SelectionList_IsMoving(SelectionList* this_);
 
 void SelectionList_SetUpdateHightlighted(SelectionList* this_, int flag);
+void SelectionList_SetFocusOnScroller(SelectionList* this_, bool val);
+void SelectionList_EnableNoTouchScroller(SelectionList* this_);
 
 void SelectionList_ForceExitA2(SelectionList* this_);
 void SelectionListw_SetExitA2Delay(SelectionList* this_, int delay_ms);
@@ -69,6 +71,7 @@ void SelectionList_PageUp(SelectionList* this_);
 void SelectionList_Paging(SelectionList* this_, int count);
 void SelectionList_UpdatePager(SelectionList* this_);
 void SelectionList_ForceDrawVerticalScrollerInPageMode(SelectionList* this_);
+bool SelectionList_IsScrollVisible(SelectionList* this_);
 #ifdef __cplusplus
 }
 #endif

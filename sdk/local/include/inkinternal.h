@@ -3,8 +3,8 @@
 
 #include "inkplatform.h"
 #include "inkview.h"
-
 #include <ft2build.h>
+
 #include FT_FREETYPE_H
 #include FT_GLYPH_H
 #include FT_IMAGE_H
@@ -35,26 +35,14 @@ extern "C" {
 #define MAXEVENTS 128  //must be powers of 2
 #define MAXDICTS 255
 
-#define SLEEPDELAY 1500LL
-#define EINKDELAY ((HWC_A13 || HWC_B288) ? 350LL : 1500LL)
+#define SLEEPDELAY 1200LL                                               // delay sleep after wake-up or app start
+#define EVENTDELAY 500LL                                                // delay sleep after keypress/touch event
+#define EINKDELAY ((HWC_A13 || HWC_B288 || HWC_B300) ? 350LL : 1500LL)  // delay sleep after eink update
 
 #define MAXVOL 100
 #define MAXUIDATA 4096
 
 #define MAXPANELANIMATIONTASKS 8
-
-#define WF_TYPE_GRAY       0
-#define WF_TYPE_BW         1
-#define WF_TYPE_OPTIMIZED  0xea
-#define WF_TYPE_BWFORCED   0xeb
-#define WF_TYPE_GU         0xec
-#define WF_TYPE_GC         0xee
-#define WF_TYPE_A2         0xef
-#define WF_TYPE_A2IN       0xe6
-#define WF_TYPE_A2OUT      0xe7
-#define WF_TYPE_PARTIALHQ  0xe9
-#define WF_TYPE_GL16       0xed
-#define WF_TYPE_DU4        0xe5
 
 #define EPDC_PIXELCHANGED 0x80000000
 #define EPDC_GRAYSCALE    0x40000000
@@ -69,6 +57,8 @@ extern "C" {
 #define SHOWCLOCK_ALWAYS 2
 #define SHOWCLOCK_OFF 3
 
+enum { WAIT_NONE=0, WAIT_HARD=1, WAIT_SOFT=2 };
+
 enum usb_state_e {
 	USBSTATE_ONLINE					= 1,
 	USBSTATE_PCLINK					= 2,
@@ -77,6 +67,7 @@ enum usb_state_e {
 	USBSTATE_CHARGING				= 16, //deprecated...use mpc->power_state with POWER_STATE_CHARDGING;
 	USBSTATE_USBNET					= 32,
 	USBSTATE_MASS_STORAGE_ATTACHED 	= 64,
+	USBSTATE_SND					= 128, //usb sound card
 };
 
 #define PWRACT_LAST 0
@@ -93,12 +84,11 @@ enum usb_state_e {
 #define PWRACT_STTY 30
 #define PWRACT_NONE 31
 
-#define IN_PLAYER 1
 #define IN_LASTOPEN 2
 #define IN_DIALOG 4
 #define IN_MENU 8
 #define IN_KEYBOARD 16
-#define IN_QNAVIGATOR 32
+#define NO_WAIT_UPDATE_COMPLETE 32
 #define NO_HOURGLASS 64
 #define NO_DISPLAY 128
 #define IS_EXTERNAL 512
@@ -182,6 +172,7 @@ typedef enum EPARTNER_ID {
     PARTNER_BOEKHANDEL,
     PARTNER_CUSTOM,
     PARTNER_EMPIKGO,
+    PARTNER_EXLIBRIS
 } PARTNER_ID;
 
 //#define DEEPSLEEPTIME 600000LL
@@ -212,6 +203,8 @@ typedef enum EPARTNER_ID {
             ((c) >= 0x2010 && (c) <= 0x2046))
 
 #define ISRTLDIGIT(c) (((c) >= '0' && (c) <= '9') || ((c) == '%'))
+
+#define ISBRACKETS(c) ((c) == '(' || (c) == ')' || (c) == '[' || (c) == ']' || (c) == '{' || (c) == '}' || (c) == '<' || (c) == '>')
 
 #define DEFAULT_3G_CONNECTION_NAME "@Default_3G_conn"
 
@@ -362,6 +355,7 @@ typedef struct iv_state_s {
     time_t adjtime_ts;
     char *locale;
     int audio_app_type; // 0 - nothing, 1 - audio player, 2 - audio book, 3 - browser, 4 - reader player
+    int capability;
 } iv_state;
 
 typedef struct iv_caches_s {
@@ -435,6 +429,8 @@ typedef struct hw_event_data_pointer_s {
 	int x;
 	int y;
 	int pressure;
+    int tilt_x;
+    int tilt_y;
 	enum input_dev_e devtype;
 } hw_event_data_pointer;
 
@@ -583,7 +579,8 @@ typedef struct iv_mpctl_s {
     unsigned int  bt_flags; // 1 - update timeout
     unsigned long reserved_11;
     unsigned long reserved_12;
-    unsigned long reserved_13;
+
+    audio_output_t audio_output;
 
     unsigned long keymask;
     time_t lastactivity;
@@ -645,7 +642,7 @@ typedef struct iv_mpctl_s {
     int menca_status;
     int partner_change_counter;
     pid_t netscript_start_pid;
-    unsigned long high_priority_job_valid_until[2]; // sec
+    time_t high_priority_job_valid_until[2]; // sec
 
     //frontlight ver 2
     hw_frontlight fl;
@@ -669,7 +666,6 @@ typedef struct iv_mpctl_s {
     int package_processing_progress;
     int package_processing_progress_pid;
 
-
     struct {
         unsigned char ext1;  // 0 - unknown; 1 - checked, no errors; 2 - checked, with errors
         unsigned char ext2;
@@ -677,6 +673,17 @@ typedef struct iv_mpctl_s {
     } filesystem_state; // FS_STATE_INT
 
     PB_STATE reader_player_state;
+    int screen_mode_invert;
+
+    // screen reader related flags
+    bool screen_reader_enabled;
+    bool screen_reader_daemon_operational;
+    bool input_blocked_by_screen_reader;
+    bool screen_reader_is_playing;
+    int text_scale_percentage;
+    int text_bold_enabled;
+    int text_contrast_enabled;
+    int text_dyslexic_font_enabled;
 } iv_mpctl;
 
 typedef struct eink_cmd_s {
@@ -730,139 +737,6 @@ typedef struct cookie_node_s {
     iv_netcookie * cookie;
     struct cookie_node_s * next;
 } cookie_node;
-
-static const struct id2code_s id2code_nx611[] = {
-        {0x1c,0x00020},
-        {0x67,0x00400},
-        {0x6c,0x00200},
-        {0x69,0x00004},
-        {0x6a,0x00040},
-        {0x3d,0x00800},
-        {0x3e,0x01000},
-        {0,0}, //terminating entry
-};
-
-//temporary keycode for alpha3 kernel release
-static const struct id2code_s id2code_fc622[] = {
-        {0x01,0x10000},//home
-        {0x02,0x00800},//prev
-        {0x03,0x01000},//next
-        {0x04,0x00008},//menu
-        {0x05,0x04000},//power
-        {0,0}, //terminating entry
-};
-
-static const struct id2code_s id2code_fc650[] = {
-        {102,0x10000},//home
-        {105,0x01000},//prev
-        {106,0x00800},//next
-        {139,0x00008},//menu
-        {116,0x04000},//power
-        {108,0x02000},//next2
-        {103,0x08000},//prev2
-        {152,0x1000000},//cover
-        {0,0}, //terminating entry
-};
-
-static const struct id2code_s id2code_lni633[] = {
-        {0x71,0x10000},//home
-        {0x73,0x00800},//prev
-        {0x72,0x01000},//next
-        {0x70,0x00008},//menu
-        {0x7d,0x04000},//power
-        {0x7f,0x800000},//power key have 2 events - shot & long
-        {0,0}, //terminating entry
-};
-
-static const struct id2code_s id2code_624[] = {
-        { 108,0x10000},//home
-        { 102,0x00800},//prev
-        { 158,0x01000},//next
-        {  28,0x00008},//menu
-        { 116,0x04000},//power
-        {0,0}, //terminating entry
-};
-
-static const struct id2code_s id2code_420[] = {
-        { 102,0x00800},//prev
-        { 158,0x01000},//next
-        { 116,0x04000},//power
-        {0,0}, //terminating entry
-};
-
-static const struct id2code_s id2code_515[] = {
-        { 102,0x00800},//prev
-        { 158,0x01000},//next
-        {  28,0x00020},//ok
-        { 103,0x00400},//up
-        { 108,0x00200},//down
-        { 105,0x00004},//left
-        { 106,0x00040},//right
-        { 116,0x04000},//power
-        {0,0}, //terminating entry
-};
-
-static const struct id2code_s id2code_630[] = {
-        {  28, 0x00800}, //prev
-        { 158, 0x01000}, //next
-        { 116, 0x04000},//power
-        {0,0}, //terminating entry
-};
-
-static const struct id2code_s id2code_631[] = {
-        {  61,0x10000},//home
-        { 106,0x00800},//prev
-        { 105,0x01000},//next
-        { 139,0x00008},//menu
-        { 116,0x04000},//power
-        { 59,0x1000000},//cover
-        {0,0}, //terminating entry
-};
-
-static const struct id2code_s id2code_fc613[] = {
-        {0x1,0x00020},//ok
-        {0x4,0x00400},//up
-        {0x5,0x00200},//down
-        {0x3,0x00004},//left
-        {0x2,0x00040},//right
-        {0x7,0x00800},//prev
-        {0x6,0x01000},//next
-        {0x8,0x04000},//power
-        {0, 0} // terminating
-};
-
-static const struct id2code_s id2code_840[] = {
-        { 158,0x01000},//prev
-        {  28,0x00800},//next
-        { 116,0x04000},//power
-        {0,0}, //terminating entry
-};
-
-static const struct id2code_s id2code_641[] = {
-        { 108,0x10000},//home
-        { 102,0x01000},//prev
-        { 158,0x00800},//next
-        { 116,0x04000},//menu/power
-        {0,0}, //terminating entry
-};
-
-static const struct id2code_s id2code_627[] = {
-        { 115,0x10000},//home
-        { 104,0x01000},//prev
-        { 109,0x00800},//next
-        { 114,0x00008},//menu
-        { 116,0x04000},//power
-        {0,0}, //terminating entry
-};
-static const struct id2code_s id2code_740[] = {
-        { 115,0x00008},//home
-        { 104,0x00800},//prev
-        { 109,0x01000},//next
-        { 114,0x10000},//menu
-        { 116,0x04000},//power
-        { 59,0x1000000},//cover
-        {0,0}, //terminating entry
-};
 
 extern iv_mtinfo mtinfo[5];
 extern iv_state ivstate;
@@ -1065,12 +939,12 @@ extern ibitmap def_broken_image;
 #endif
 
 int hw_init();
+bool hw_is_initialized();
 
 int hw_io_init();
 int hw_eink_init();
 int hw_gsensor_init();
 int hw_touchpanel_init();
-int hw_captouch_init();
 bool hw_is_touch_enabled(void);
 void hw_touch_enable(bool onOff);
 
@@ -1079,40 +953,36 @@ void hw_io_close();
 void hw_eink_close();
 void hw_gsensor_close();
 void hw_touchpanel_close();
-void hw_captouch_close();
+
 int hw_safemode();
 int hw_einkversion();
-void hw_eink_setflags(uint32_t flags);
 void hw_displaysize(int *w, int *h);
 void hw_set_fb_orientation(icanvas *fb, int n);
 int hw_update_fb_orientation(icanvas *fb);
 int hw_ioctl(int cmd, void *data);
 icanvas *hw_getframebuffer();
-int hw_update(int x, int y, int w, int h, int bw, unsigned char *mask);
+int hw_update(int x, int y, int w, int h, int flags);
 int hw_is_update_pending();
-unsigned long do_partial_update(int x, int y, int w, int h, int bw, int dynamic);
 void hw_fullupdate();
 void hw_fullupdate_hq();
-void hw_refine16();
-int hw_capable16();
 void hw_get_wftimes(uint16_t result[16]);
 void hw_switch_dynamic(int n);
 void hw_override_update(int mode);
-void hw_suspend_display();
+int hw_suspend_display();
 void hw_resume_display();
 void hw_restore_screen(int deep);
-void hw_wait_luts_complete();
+void hw_wait_luts_complete(int mode);
 int hw_useraction();
 int hw_keystate(int key);
 int hw_init_evqueue();
 int hw_wait_event();
 int hw_nextevent(hw_event *);
 int hw_ts_active();
-int hw_captouch_active();
 int hw_is_player_playing();
 int hw_is_audio_book_playing();
 int hw_is_browser_playing();
 int hw_is_reader_player_playing();
+int hw_is_screen_playing();
 int hw_isttsplaying();
 int hw_isscanning();
 int hw_isadobescanning();
@@ -1122,6 +992,7 @@ bool hw_isusblinked();
 int hw_isusbhostconnected();
 int hw_isUsbStorAttached();
 int hw_isUsbStorMounted();
+bool hw_isUsbSndAttached(void);
 char *hw_usbStorSerialNumber(void);
 int hw_issdinserted();
 const char *hw_external_card_serial_number(void);
@@ -1151,11 +1022,22 @@ char *hw_getmac();
 char *hw_getbtmac();
 char *hw_get3gimei();
 int hw_geta2dpstatus(void);
+
+typedef enum {
+    OutputLogoModeFillScreen = 0,
+    OutputLogoModeAdjustWithWhiteBackground = 1, // default value
+    OutputLogoModeAdjustWithBlackBackground = 2,
+    OutputLogoModeDepthEffect = 3,
+} ivOutputLogoMode;
+
+ibitmap *iv_create_adjusted_cover_logo(const ibitmap *bm, int is_boot_logo);
+
 int hw_writelogo(const ibitmap *bm, int permanent);
-void hw_show_poweroff_logo();
+int hw_show_poweroff_logo();
 int hw_write_lowpower_logo(const char *low_power_logo);
 void hw_change_logo_by_lang(int bits_logo_type); // 1 - boot logo; 2 - low battery logo
 int hw_restorelogo();
+
 int hw_usbready();
 void hw_usblink();
 void hw_usbStorEject();
@@ -1176,18 +1058,12 @@ int hw_gsensor_orientation();
 int hw_gsensor_switch(bool onOff);
 int hw_gsensor_get_switch(void);
 
-int hw_captouch_ready();
 int hw_read_captouch();
 int hw_sd_mounted();
 int hw_flash_mounted();
 int has_secure_storage();
 void hw_winmessage(char *title, char *text, int flags);
 int iv_check_pointerscroll(int type, int par1, int par2);
-
-int hw_iicreadb(int addr, int reg, int count, char *data);
-int hw_iicwriteb(int addr, int reg, int count, char *data);
-int hw_iicreadw(int addr, int reg, int count, short *data);
-int hw_iicwritew(int addr, int reg, int count, short *data);
 
 long hw_ipcrequest_to(int mq, long type, long param, void *data, int inlen, int outlen, int timeout);
 long hw_ipcrequest(long type, long param, void *data, int inlen, int outlen, int timeout);
@@ -1274,23 +1150,11 @@ void hw_uiclear();
 int hw_uiquery();
 void hw_uiresponse(int status, char *data);
 
-void hw_mp_loadplaylist(char **pl);
-char **hw_mp_getplaylist();
-void hw_mp_playtrack(int n);
-int hw_mp_currenttrack();
-int hw_mp_tracksize();
-void hw_mp_settrackposition(int pos);
-int hw_mp_trackposition();
 void hw_mp_setstate_ex(int state, int app_type);
 void hw_mp_setstate(int state);
 int hw_mp_getstate();
-void hw_mp_setmode(int mode);
-int hw_mp_getmode();
 void hw_mp_setvolume(int n);
 int hw_mp_getvolume();
-void hw_mp_setequalizer(int *eq);
-void hw_mp_getequalizer(int *eq);
-void iv_check_player_state_change();
 
 void *hw_task_checkmessages(int *replyaddr, int *type, int *param, int *size);
 int hw_task_register(const char *appname, const char *name, const ibitmap *icon, unsigned int flags);
@@ -1359,8 +1223,9 @@ int hw_is_timed_refresh_enabled(void);
 void hw_mcu_go_standby(void);
 void hw_mcu_reset(void);
 
+#define iv_extend_wtime(t) _iv_extend_wtime(__FILE__, __LINE__, t)
+void _iv_extend_wtime(const char *module, int line, long long t);
 
-void iv_extend_wtime(long long t);
 iv_handler iv_seteventhandler(iv_handler hproc);
 iv_handler iv_restoreeventhandler(iv_handler hproc, int keytm1, int keytm2);
 void iv_enqueue(iv_handler hproc, int type, int par1, int par2);
@@ -1381,14 +1246,10 @@ void iv_area(int dstx, int dsty, int width, int height,
 void iv_draw_hourglass_frame(int x, int y, int frame, int pure);
 int iv_msgtop();
 void iv_timechanged();
-void def_openplayer();
-bookinfo *def_getbookinfo(const char *path);
-ibitmap *def_getbookcover(const char *path, int width, int height);
-int iv_player_handler(int type, int par1, int par2);
 void iv_setsoftupdate();
 void iv_actualize_panel(int update);
 void iv_update_panel(int with_time);
-int iv_panelevent(int type, int x, int y) ;
+int iv_panelevent(int *in_type, int *in_x, int *in_y);
 void iv_update_orientation(int isexternal);
 void iv_check_gsensor();
 int iv_transform_key(int key);
@@ -1414,14 +1275,12 @@ void iv_invertitem(int x, int y, int w, int h, int d);
 void iv_check_uiquery();
 void iv_hintmsg(int x, int y, const char *s, ...);
 void global_key_action(char *name);
-int iv_qn_handleevent(int type, int par1, int par2);
 int iv_check_task_messages();
 void iv_foreground_event();
 void iv_background_event();
 void iv_openmainmenu();
 void iv_openlastbooks();
 void iv_opencalendar();
-void iv_openplayer();
 void iv_toggleplaying();
 void iv_pause();
 void iv_volumeup();
@@ -1432,6 +1291,31 @@ int iv_panel_used();
 void init_partner();
 void hw_clear_last_update_time(void);
 long long hw_get_last_update_time(void);
+
+/**
+ * @brief iv_set_system_language_old
+ * @param lang - old proprietary format
+ */
+INKVIEW_DEPRECATED("Use `iv_set_system_locale` instead") void iv_set_system_language_old(const char* lang);
+
+typedef enum
+{
+    iv_set_system_locale_ok,
+    iv_set_system_locale_empty,
+    iv_set_system_locale_too_much_parts,
+    iv_set_system_locale_contains_unalowed_syms,
+    iv_set_system_locale_lang_is_not_iso_639_1,
+    iv_set_system_locale_region_is_not_iso_3166_1_alpha_2,
+    iv_set_system_locale_unsupported_proprietary_language_code,
+    iv_set_system_locale_can_not_open_config,
+} iv_set_system_locale_error;
+
+/**
+ * @brief iv_set_system_locale - sets system locale in global config
+ * @param locale - in format `[lang]_[region]` where `lang` is `iso_639_1` and `region` is `3166_1_alpha_2` (region is optional)
+ * @return error
+ */
+iv_set_system_locale_error iv_set_system_locale(const char* locale);
 
 int pager_height();
 int check_rtlbase(unsigned short *p, int len);
@@ -1523,6 +1407,12 @@ const char* GetStoreName()
 const char* GetStoreName();
 
 /*
+const char* GetStoreClientId()
+- return partner store client id
+*/
+const char* GetStoreClientId();
+
+/*
  * Kill some stores and restart some applications after change partner
  */
 void RestartOnPartnerChanged();
@@ -1536,6 +1426,7 @@ typedef enum DeviceConfigFlag_e {
     kDevCfgNeedAutoRegistrationToCloud,
     kDevHasOpds,
     kDevUseAudio, // Check flag only if (HWC_AUDIO && device_ID() == DEVICE_740). for 740 CIS it should be 0, other device - unknown.
+    kDevLegimiOff,
 } DeviceConfigFlag;
 
 int getDeviceConfigFlag(DeviceConfigFlag flag);
@@ -1603,6 +1494,16 @@ void iv_rgb565_to_gs_with_gamma(struct iv_img_conv *c, double gamma);
 void iv_rgb24_to_gs(struct iv_img_conv *c);
 
 /*
+ * Convert RGBA32 premultiplied image to 8-bit greyscale
+ */
+void iv_rgba32premultiplied_to_gs(struct iv_img_conv *c);
+
+/*
+ * Convert RGBA32 premultiplied image to RGB888
+ */
+void iv_rgba32premultiplied_to_rgb888(struct iv_img_conv *c);
+
+/*
  * Convert 4-bit image to 8-bit greyscale
  */
 void iv_gs4_to_gs(struct iv_img_conv *c);
@@ -1611,6 +1512,13 @@ void iv_gs4_to_gs(struct iv_img_conv *c);
  * Copy 8-bit greyscale image
  */
 void iv_gs_to_gs(struct iv_img_conv *c);
+
+
+/*
+ * Blend one scanline of ARGB32 premultiplied image onto 8-bit or RGB24 fb
+ */
+void iv_blend_argb32premul_to_gs8(struct iv_img_conv *c);
+void iv_blend_argb32premul_to_rgb24(struct iv_img_conv *c);
 
 //BT client functionality
 bt_service_obj *bt_service_init_input(int id);
@@ -1631,6 +1539,56 @@ int hw_init_shm();
 void set_fb_orientation(int n);
 int hw_flightmode(bool mode);
 bool hw_is_flightmode(void);
+
+void init_logger_mutex(void);
+
+typedef enum {
+	IOC_CONFIGSTORAGE_OP_CHECK	= 0,
+	IOC_CONFIGSTORAGE_OP_READ,
+	IOC_CONFIGSTORAGE_OP_WRITE,
+} IocConfigStorageOperation_t;
+
+typedef struct {
+	IocConfigStorageResult_t result;
+	ConfigStorageSlot_t slot;
+	ConfigStorageSert sert;
+	size_t data_size;
+	uint8_t data[];
+} IocReqConfigStorage_t;
+
+int hw_ioc_config_storage_write(ConfigStorageSlot_t slot, void *data, size_t data_size, ConfigStorageSert sign);
+int hw_ioc_config_storage_read(ConfigStorageSlot_t slot, void *data, size_t *data_size, ConfigStorageSert *sign);
+int hw_ioc_config_storage_check(ConfigStorageSlot_t slot, void *data, size_t data_size, ConfigStorageSert sign);
+
+
+bool isDeviceSupportSecure();
+bool isDeviceInitedSecure();
+
+int isDeviceContract();
+int isDeviceContractLock();
+time_t getDeviceContractNextCheck();
+time_t getDeviceContractEnd();
+
+bool hw_is_screen_mode_inverted(void);
+void hw_set_screen_mode_inverted(bool state);
+
+int hw_writelowpowerbootlogo(const ibitmap *bm);
+int hw_writebootlogo(const ibitmap* bm, int permanent);
+
+// jpegtiff.c
+void SetLoadFrameColor(int color);
+
+// file.c
+int is_link(const char *in, char *out, int len);
+
+// get panel status as text for play function in accessibility mode
+void iv_get_panel_as_accessibility_text(char *buf, int size);
+
+ifont *iv_get_theme_font_scaled(const char *name, const char *deflt);
+ifont *iv_get_theme_font_scaled_part(const char *name, const char *deflt, double scaleKoef);
+
+// return new OpenFont
+ifont *iv_font_rescale(ifont *font, double koeff);
 
 #ifdef __cplusplus
 }

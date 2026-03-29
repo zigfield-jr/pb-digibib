@@ -2,7 +2,6 @@
 #define TIME_TEST_H
 
 #include <inkinternal.h>
-#include <inkview.h>
 
 static int time_test_update_called = 0;
 

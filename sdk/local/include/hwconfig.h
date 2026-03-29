@@ -24,6 +24,8 @@ typedef enum {
 	PLATFORM_MX6SL = 5,
 	PLATFORM_A13 = 14,
 	PLATFORM_B288 = 16,
+	PLATFORM_B300 = 17,
+	PLATFORM_RK3566 = 18,
 } platform_id_t;
 
 typedef enum {
@@ -37,17 +39,29 @@ typedef enum {
 	DEVICE_616 = 22,
 	DEVICE_632 = 23,
 	DEVICE_626 = 24,
-	DEVICE_840,
-	DEVICE_840_2,
-	DEVICE_740_2,
-	DEVICE_1040,
+	DEVICE_840 = 25,
+	DEVICE_840_2 = 26,
+	DEVICE_740_2 = 27,
+	DEVICE_1040 = 28,
 	DEVICE_606 = 29,
-	DEVICE_633,
-	DEVICE_628,
-	DEVICE_741,
-	DEVICE_617,
-	DEVICE_970,
-	DEVICE_700,
+	DEVICE_633 = 30,
+	DEVICE_628 = 31,
+	DEVICE_741 = 32,
+	DEVICE_617 = 33,
+	DEVICE_970 = 34,
+	DEVICE_700 = 35,
+	DEVICE_743c = 36,
+	DEVICE_743g = 37,
+	DEVICE_802 = 38,
+	DEVICE_618 = 39,
+	DEVICE_634 = 40,
+	DEVICE_629 = 41,
+	DEVICE_743k3 = 42,
+	DEVICE_700k3 = 43,
+	DEVICE_634k3 = 44,
+	DEVICE_619 = 45,
+	DEVICE_1040dl = 46,
+	DEVICE_700k3p = 47,
 } device_id_t;
 
 // ================ display and epd controller ==============
@@ -65,7 +79,8 @@ typedef enum {
 	DISPLAY_7INCH_1872_1404, // display 1404x1872 7"
 	DISPLAY_10INCH_1872_1404, //display 1404x1872 10.3"
 	DISPLAY_9INCH_1200_825, //display 1200x825 9.7"
-	DISPLAY_7INCH_1264_1680
+	DISPLAY_7INCH_1264_1680,
+	DISPLAY_8INCH_1920_1440, //display 1920x1440 ACEP
 } display_id_t;
 
 typedef enum {
@@ -73,47 +88,64 @@ typedef enum {
 	EPDC_IMX = 3,
 	EPDC_ALLWINNER_A13 = 5,
 	EPDC_ALLWINNER_B288 = 6,
+	EPDC_ALLWINNER_B300 = 7,
+	EPDC_T1000 = 8,
+	EPDC_ROCKCHIP = 9,
 } epdc_id_t;
 
 typedef enum {
 	COLORMASK_NONE = 0,
 	COLORMASK_CFA = 1,
 	COLORMASK_CFA2 = 2,
+	COLORMASK_CFA3 = 3,
+	COLORMASK_ACEP = 4,
 } colormask_t;
 
-#define UPDATE_MODE_PARTIAL   0x0
-#define UPDATE_MODE_FULL      0x1
-#define UPDATE_MODE_PARTIALHQ 0x2
-#define UPDATE_MODE_FULLHQ    0x3
+typedef enum {
+	NATIVE_LANDSCAPE = 0,
+	NATIVE_PORTRAIT = 1,
+} native_orientation_t;
+
+typedef enum {
+	UPDATE_MODE_PARTIAL   = 0,
+	UPDATE_MODE_FULL      = 1,
+	UPDATE_MODE_PARTIALHQ = 2,
+	UPDATE_MODE_FULLHQ    = 3,
+} update_mode_t;
 
 //======= input devices ============
 
 typedef enum {
-  KEYBOARD_NTX600 = 0,
-  KEYBOARD_POCKET360 = 1,
-  KEYBOARD_COOKIE = 2,
-  KEYBOARD_DIGITEKA = 3,
-  KEYBOARD_EP1234 = 4,
-  KEYBOARD_EP7 = 5,
-  KEYBOARD_POCKET650 = 6,
-  KEYBOARD_POCKET840 = 7,
-  KEYBOARD_POCKET630 = 8,
-  KEYBOARD_POCKET420 = 9,
-  KEYBOARD_POCKET620 = 10,
-  KEYBOARD_POCKET641 = 11, //like 626, but without standart power button. Power button is KEY_MENU
-  KEYBOARD_POCKET627 = 12,
-  KEYBOARD_POCKET611 = 14,
-  KEYBOARD_POCKET613 = 15,
-  KEYBOARD_POCKET515 = 16,
-  KEYBOARD_POCKET624 = 17,
-  KEYBOARD_POCKET631 = 18,
-  KEYBOARD_POCKET740 = 19,
-  KEYBOARD_POCKET616 = 20,
-  KEYBOARD_POCKET632 = 21,
-  KEYBOARD_POCKET1040 = 22, //like 632, but without standart power button. Power button is KEY_MENU
-  KEYBOARD_POCKET970,
-  KEYBOARD_POCKET617,
-  KEYBOARD_POCKET700
+	KEYBOARD_NTX600 = 0,
+	KEYBOARD_POCKET360 = 1,
+	KEYBOARD_COOKIE = 2,
+	KEYBOARD_DIGITEKA = 3,
+	KEYBOARD_EP1234 = 4,
+	KEYBOARD_EP7 = 5,
+	KEYBOARD_POCKET650 = 6,
+	KEYBOARD_POCKET840 = 7,
+	KEYBOARD_POCKET630 = 8,
+	KEYBOARD_POCKET420 = 9,
+	KEYBOARD_POCKET620 = 10,
+	KEYBOARD_POCKET641 = 11, //like 626, but without standart power button. Power button is KEY_MENU
+	KEYBOARD_POCKET627 = 12,
+	KEYBOARD_POCKET611 = 14,
+	KEYBOARD_POCKET613 = 15,
+	KEYBOARD_POCKET515 = 16,
+	KEYBOARD_POCKET624 = 17,
+	KEYBOARD_POCKET631 = 18,
+	KEYBOARD_POCKET740 = 19,
+	KEYBOARD_POCKET616 = 20,
+	KEYBOARD_POCKET632 = 21,
+	KEYBOARD_POCKET1040 = 22, //like 632, but without standart power button. Power button is KEY_MENU
+	KEYBOARD_POCKET970,
+	KEYBOARD_POCKET617,
+	KEYBOARD_POCKET700,
+	KEYBOARD_POCKET743,
+	KEYBOARD_POCKET618,
+	KEYBOARD_POCKET634,
+	KEYBOARD_POCKET629,
+	KEYBOARD_POCKET619,
 } keyboard_id_t;
 
 typedef enum {
@@ -132,7 +164,13 @@ typedef enum {
 	TOUCHPANEL_FT5726, //970
 	TOUCHPANEL_FT5426, //632
 	TOUCHPANEL_eKTH3908F,
-	TOUCHPANEL_FT5436 //700
+	TOUCHPANEL_FT5436, //700, 743g
+	TOUCHPANEL_FT5536, //743g tp2
+	TOUCHPANEL_TT41101_wCalib, //743k3
+	TOUCHPANEL_TT41101_FW2, //740; 740-2 on ED078KH9 screen
+	TOUCHPANEL_ELAN_eKTF2232OED,  // #148906
+	TOUCHPANEL_FT5426_OED, //632 OED, #149961
+	TOUCHPANEL_ELAN_RK3566, //700k3p
 } touchpanel_id_t;
 
 typedef enum {
@@ -222,6 +260,7 @@ typedef enum {
 typedef enum {
 	BLUETOOTH_NONE = 0,
 	BLUETOOTH_RTL8761 = 6,
+	BLUETOOTH_AW869A,
 } bluetooth_id_t;
 
 typedef enum {
@@ -229,6 +268,8 @@ typedef enum {
 	WIFI_RTL8188EU = 8,
 	WIFI_RTL8189FS = 11,
 	WIFI_XRADIO = 12, //internal b288 wifi driver
+	WIFI_AW869A,
+	WIFI_XR829,
 } wifi_id_t;
 
 typedef enum {
@@ -249,6 +290,7 @@ unsigned int device_display_height(void);
 unsigned int device_display_width(void);
 unsigned int device_display_scanline(void); //deprecated...not configured
 unsigned int device_display_dpi(void);
+unsigned int device_display_native_orientation(void);
 uint8_t device_display_position(void);
 
 typedef enum {
@@ -261,12 +303,16 @@ typedef enum {
 	WAVEFORM_A2IN  = 6,
 	WAVEFORM_A2OUT = 7,
 	WAVEFORM_DU4   = 8,
+	WAVEFORM_GCC16 = 9,
+	WAVEFORM_GLR16 = 10,
+	WAVEFORM_GLN16 = 11,
 } waveform_type_t;
 
 typedef enum {
-       CONVERT_SATURATE = (1 << 0), // saturate colors for CFA conversion
-       CONVERT_DITHER   = (1 << 8), // apply ordered dithering for CFA conversion
-       CONVERT_PURE     = (1 << 9), // convert to pure colors for DU/A2 update
+       CONVERT_DITHER    = (1 << 8),  // not used
+       CONVERT_PURE      = (1 << 9),  // pure colors for DU/A2 update
+       CONVERT_INVERSION = (1 << 10), // night mode
+       CONVERT_FULL      = (1 << 11), // full update
 } conv_flags_t;
 
 typedef struct {
@@ -279,25 +325,47 @@ typedef struct {
 } epdc_img_t;
 
 typedef struct {
+
 	int version;
 	int type;
-	int alignment;
-	int fd;
-	uint8_t *framebuffer;
-	int width;
-	int height;
-	int scanline;
-	int orientation;
-	uint32_t memsize;
-	void (*rotate)(int value);
+	int alignment;        // optimal alignment for user framebuffers
+	int fd;               // framebuffer fd
+	uint8_t *framebuffer; // mmap-ed framebuffer
+	int width;            // width
+	int height;           // height
+	int scanline;         // scanline
+	int depth;            // 8 for gs or cfa, 32 for acep
+	uint32_t memsize;     // size to mmap
+
+	/* rotate - set image orientation (only needed for devices with hw rotate engine) */
+	void (*rotate)(int orientation);
+
+	/* update display area */
 	int  (*update)(int x, int y, int w, int h, int wf, int mode);
+
+	/* return 1 if hw engine is in process of update, 0 if idle */
 	int  (*busy)(void);
+
+	/* return an array of execution times (ms) for all waveforms for current temperature */
 	void (*getwftimes)(uint16_t result[16]);
+
+	/* wait for all updates to complete */
 	void (*sync)(void);
+
+	/* take a lock of epdc instance */
 	void (*lock)(void);
 	void (*unlock)(void);
-	void (*copy)(epdc_img_t *img, int x, int y, int w, int h);
+
+	/* copy image to framebuffer, rotate if needed (img->orientation to native fb orientation) */
+	int  (*copy)(epdc_img_t *img, int x, int y, int w, int h);
+
+	/* convert from RGB24/GS8 to GS8/CFA/ACEP colormask, no rotation (but img->orientation need for correct mask position) */
 	void (*convert)(epdc_img_t *src, int srcx, int srcy, int w, int h, epdc_img_t *dest, int dstx, int dsty, uint32_t flags);
+
+	/* suspend external controller if needed, return 1 if suspend ok or not required, 0 if cannot suspend */
+	int  (*suspend)(void);
+
+
 } epdc_instance_t;
 
 epdc_id_t device_epdc(void);
@@ -448,6 +516,8 @@ bool device_write_file_int(const char *name, int v);
 int device_read_bin_file(const char *name, char *buf, int size);
 bool device_read_file(const char *name, char *buf, int size);
 int device_read_file_int(const char *name, int deflt);
+
+const char *device_battery_manufacture(void);
 
 typedef struct {
 

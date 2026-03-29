@@ -125,6 +125,9 @@ void ScrollView_ForceExitA2(ScrollView* this_);
 void ScrollView_SetExitA2Delay(ScrollView* this_, int delay_ms);
 void ScrollView_UseDraggableScroller(ScrollView* this_, int use);
 void ScrollView_SetBackgroundColor(ScrollView* this_, int bcolor);
+void ScrollView_SetFocusOnScroller(ScrollView* this_, bool value);
+bool ScrollView_IsScrollVisible(ScrollView* this_);
+void ScrollView_DisableNoTouchScroll(ScrollView* this_);
 
 void ScrollView_SetScrollerOffset(ScrollView* this_, int top_offset, int bottom_offset);
 void ScrollView_SetFlags(ScrollView* this_, int flags);

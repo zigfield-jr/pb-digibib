@@ -26,6 +26,14 @@
 #include <stdbool.h>
 
 #ifdef __cplusplus
+#define INKVIEW_DEPRECATED(MSG) [[deprecated(MSG)]]
+#else
+#define INKVIEW_DEPRECATED(MSG) __attribute__((deprecated))
+#endif
+
+#define PRINT_LOCATION printf("-<> %s:%d\n", __FILE__, __LINE__);
+
+#ifdef __cplusplus
 extern "C"
 {
 #endif
@@ -90,8 +98,10 @@ extern "C"
 #define USERDICTPATH1 USERDATA "/dictionaries"
 #define USERDICTPATH2 USERDATA2 "/dictionaries"
 #define SYSTEMBOOTLOGOPATH SYSTEMDATA "/logo/bootlogo"
+#define SYSTEMSLEEPLOGOPATH SYSTEMDATA "/logo/sleeplogo"
 #define SYSTEMOFFLOGOPATH SYSTEMDATA "/logo/offlogo"
 #define USERBOOTLOGOPATH USERDATA "/logo/bootlogo"
+#define USERSLEEPLOGOPATH USERDATA "/logo/sleeplogo"
 #define USEROFFLOGOPATH USERDATA "/logo/offlogo"
 #define USERCOMPATLOGOPATH USERDATA "/logo"
 #define NOTESPATH FLASHDIR "/notes"
@@ -124,8 +134,6 @@ extern "C"
 #define RESTORESCRIPT SYSTEMDATA "/bin/restore.sh"
 #define NETAGENT SYSTEMDATA "/bin/netagent"
 #define BOOKLANDAPP SYSTEMDATA "/bin/bookland.app"
-#define USERMPLAYER USERDATA "/bin/mplayer.so"
-#define USERBOOKINFO USERDATA "/bin/bookinfo.so"
 #define POCKETBOOKSIG USERDATA "/.pocketbook"
 #define USERSCANNER USERDATA "/bin/scanner.app"
 #define SYSTEMSCANNER SYSTEMDATA "/bin/scanner.app"
@@ -254,7 +262,7 @@ extern const char * OBREEY_SOCIAL_COOKIES_PATH;
 #define MSG_TIMESTAMP         0x112
 #define MSG_UPDATESTATUS      0x113
 #define MSG_GSENSOR_MODE      0x114
-//#define MSG_ENABLE_GSENSOR    0x115
+#define MSG_SCREEN_INVERT_MODE_CHANGED	0x115
 #define MSG_CONFIG_CHANGED    0x116
 #define MSG_SET_LED           0x117
 #define MSG_ENCRYPT_MEM       0x118
@@ -288,6 +296,9 @@ extern const char * OBREEY_SOCIAL_COOKIES_PATH;
 #define MSG_AUDIO_STATUS		0x300 //check audio output connection; return audio_output_info struct
 #define MSG_AUDIO_RECONFIGURE	0x301 //notify monitor about reconfiguration
 
+#define MSG_USB_STORAGE_EJECT	0x401
+#define MSG_USB_SND_EJECT		0x402
+
 #define MSG_TASK_REGISTER       0x501
 #define MSG_TASK_NEWSUBTASK     0x502
 #define MSG_TASK_SWITCHSUBTASK  0x503
@@ -314,6 +325,9 @@ extern const char * OBREEY_SOCIAL_COOKIES_PATH;
 
 #define MSG_START_SERVICES	0x600
 #define MSG_LAST_OPEN_OPENED	0x601
+#define MSG_START_TASKMGR       0x602
+
+#define MSG_IOC_CONFIGSTORAGE	0x701
 
 #define MSG_DEVICEKEY         0xad0be01
 #define MSG_RESETKEY          0xad0be02
@@ -400,6 +414,17 @@ enum globalaction_on_event_e {
 #define EVT_FOREGROUND    151
 #define EVT_BACKGROUND    152
 #define EVT_SUBTASKCLOSE  153
+
+enum GlobalConfigProperty {
+    GCP_MULTIPLE_PROPERTIES = 0,
+    GCP_SCREEN_READER_ENABLED = 1,
+    GCP_TEXT_SCALE = 2,
+    GCP_TEXT_BOLD_ENABLED = 3,
+    GCP_TEXT_CONTRAST_ENABLED = 4,
+    GCP_TEXT_DYSLEXIC_FONT_ENABLED = 5,
+    GCP_MULTIPLE_TEXT_ACCESSIBILITY_PARAMETERS = 6
+};
+
 #define EVT_CONFIGCHANGED 154
 #define EVT_SAVESTATE     155
 #define EVT_OBREEY_CONFIG_CHANGED 156
@@ -432,6 +457,9 @@ enum globalaction_on_event_e {
 #define EVT_READ_PROGRESS_CHANGED 220
 #define EVT_DUMP_BITMAPS_DEBUG_INFO 221
 
+// scanner.app - send this event on personal scan request
+#define EVT_PERSONAL_SCAN_FINISHED 222
+
 #define EVT_NET_CONNECTED	256
 #define EVT_NET_DISCONNECTED 257
 #define EVT_NET_FOUND_NEW_FW 260
@@ -444,9 +472,25 @@ enum globalaction_on_event_e {
 #define EVT_AUDIO_CHANGED 265 //audio output routing was changed
 
 #define EVT_PACKAGE_JOB_CHANGED 266
-#define EVT_CUSTOM 267
+#define EVT_TTS_PLAY_ENDED 267
 
-enum AvrcpCommands{
+#define EVT_SCREEN_INVERSION_MODE_CHANGED 268
+
+#define EVT_SCREEN_READER_PROPERTY_CHANGED 269
+
+#define EVT_ACCESSIBILITY_GESTURE 270
+
+// event about change time on device
+#define EVT_TIME_CHANGED 271
+#define EVT_SYSTEM_LOCALE_CHANGED 272
+
+#define EVT_CUSTOM 1024
+
+/// par1 for EVT_SCREEN_READER_PROPERTY_CHANGED
+#define SCREEN_READER_PROPERTY_INPUT_BLOCKED 0
+#define SCREEN_READER_PROPERTY_DAEMON_OPERATIONAL 1
+
+enum AvrcpCommands {
     AVRCP_NEXT,
     AVRCP_PREVIOUS,
     AVRCP_PAUSE,
@@ -470,15 +514,16 @@ enum PackageJobActions {
     PJA_PACKAGE_UNINSTALL_STARTED,
     PJA_PACKAGE_UNINSTALL_FINISHED,
     PJA_JOBS_FINISHED,
+    PJA_JOBS_ABORTED,
 };
 
 #define ISKEYEVENT(x) (((x)>=EVT_KEYDOWN && (x)<=EVT_KEYREPEAT) || ((x)>=EVT_KEYPRESS_EXT && (x)<=EVT_KEYREPEAT_EXT))
 #define ISPOINTEREVENT(x) (((x)>=29 && (x)<=31) || ((x)>=34 && (x)<=35) || (x)==44 || (x)==39 || (x)==45 || (x)==EVT_POINTERCHANGED)
 #define ISPANELEVENT(x) ((x)>=119 && (x) <= 132)
 
-
 #define IV_KEY_POWER  0x01
 #define IV_KEY_DELETE 0x08
+#define IV_KEY_TAB    0x09
 #define IV_KEY_OK     0x0a
 #define IV_KEY_UP     0x11
 #define IV_KEY_DOWN   0x12
@@ -501,6 +546,8 @@ enum PackageJobActions {
 #define IV_KEY_ZOOMIN  0x07
 #define IV_KEY_MENU_POWER 0x04
 #define IV_KEY_MAX 0x20
+
+#define IS_JOYSTICK_NAVIGATION_KEY(x) ((x)>=IV_KEY_UP && (x)<=IV_KEY_RIGHT)
 
 /* KEYBOARD STATE KEYS */
 #define IV_KEY_SHIFT 0x0E
@@ -579,7 +626,9 @@ typedef enum keymap_e {
 #define KBD_MARKED_ENTER_KEY       0x200000
 #define KBD_PASSWORD_WIFI          0x400000
 #define KBD_NEXT                   0x800000
-
+#define KBD_ENTRY_AREA            0x1000000
+#define KBD_ICON_ENTER_KEY        0x2000000
+#define KBD_HIDE_SUGGESTIONS      0x4000000
 
 #define ICON_INFORMATION 1
 #define ICON_QUESTION 2
@@ -726,6 +775,7 @@ typedef enum keymap_e {
 #define REQ_PB_CLOUD_BOOKMARKS_SYNCED 97
 #define REQ_TOUCHSCREEN 98
 #define REQ_EXPLORER 99
+#define REQ_OPEN_WITH_ARGS 100
 
 #define ALIGN_LEFT 1
 #define ALIGN_CENTER 2
@@ -954,6 +1004,8 @@ typedef enum
 	SFLAGS_ALL				= SFLAGS_LEFT | SFLAGS_RIGHT | SFLAGS_UP | SFLAGS_DOWN,	// 0x0f
 } SideFlags;
 
+typedef size_t iv_handler_descriptor;
+#define IV_NULL_HANDLER_DESCRIPTOR 0
 
  /**
   * Enum wich can be used for SetPanelType function
@@ -984,25 +1036,97 @@ char *iv_get_default_font(FONT_TYPE fonttype);
 // #102140 function returned back - symbol needed by CoolReader
 int GetHardwareDepth();
 
-typedef struct irect_s {
+typedef struct iv_vector2i_s {
+    int x;
+    int y;
+} iv_vector2i;
 
+typedef struct iv_vector2f_s {
+    float x;
+    float y;
+} iv_vector2f;
+
+typedef struct iv_vector2d_s {
+    double x;
+    double y;
+} iv_vector2d;
+
+typedef struct iv_matrix2i_s {
+    int a00;
+    int a01;
+    int a10;
+    int a11;
+} iv_matrix2i;
+
+typedef struct iv_matrix2f_s {
+    float a00;
+    float a01;
+    float a10;
+    float a11;
+} iv_matrix2f;
+
+typedef struct iv_matrix2d_s {
+    double a00;
+    double a01;
+    double a10;
+    double a11;
+} iv_matrix2d;
+
+typedef struct iv_complex2f_s {
+    float r;
+    float i;
+} iv_complex2f;
+
+typedef struct iv_complex2d_s {
+    double r;
+    double i;
+} iv_complex2d;
+
+typedef struct irect_s {
     int x;
     int y;
     int w;
     int h;
     int flags;
-
 } irect;
 
+typedef irect iv_rect;
+
+typedef struct iv_update_area_s {
+    irect rect;
+    irect prev_rect;
+    bool need_update;
+    bool *need_update_ptr;
+} iv_update_area;
+
 typedef struct ibitmap_s {
-
-    unsigned short width;
-    unsigned short height;
-    unsigned short depth;
-    unsigned short scanline;
-    unsigned char data[];
-
+    unsigned short width;     // pixels in line
+    unsigned short height;    // line count
+    unsigned short depth;     // bits in pixel
+    unsigned short scanline;  // bytes in line
+    unsigned char data[];     // byte array
 } ibitmap;
+
+
+typedef ibitmap iv_bitmap;
+
+/**
+ * @brief iv_size{i,f,d}
+ * @param bitmap
+ * @return bitmap size vector
+ */
+iv_vector2i iv_sizei(const iv_bitmap* bitmap);
+iv_vector2f iv_sizef(const iv_bitmap* bitmap);
+iv_vector2d iv_sized(const iv_bitmap *bitmap);
+/**
+ * @brief iv_half_size{i,f,d}
+ * @param bitmap
+ * @return bitmap size vector / 2 (center of image)
+ */
+iv_vector2i iv_half_sizei(ibitmap* bitmap);
+iv_vector2f iv_half_sizef(ibitmap* bitmap);
+iv_vector2d iv_half_sized(ibitmap* bitmap);
+
 /** 
  * Struct wich can be used for function OpenControlPanel
  * currently is a stub, 
@@ -1012,7 +1136,10 @@ typedef struct control_panel_s {
     int flags; /**< is a SET of flags, currently not used */
 } control_panel;
 
+typedef void (*iv_voidfunc)();
+
 typedef int  (*iv_handler)(int type, int par1, int par2);
+typedef int  (*iv_ctx_handler)(void* ctx, int type, int par1, int par2);
 typedef void (*iv_timerproc)();
 typedef void (*iv_timerprocEx)(void* context);
 
@@ -1035,12 +1162,15 @@ typedef int  (*iv_turnproc)(int direction);
 typedef int  (*iv_recurser)(char *path, int type, void *data);
 typedef int  (*iv_msghandler)(int task, void *message, int len);
 typedef int  (*iv_requestlistener)(int request, void *data, int inlen, int outlen);
+typedef int  (*iv_requestlistener_ex)(void* ctx, int request, void *data, int inlen, int outlen);
 
 typedef int  (*iv_hashenumproc)(char *name, void *value, void *userdata);
 typedef int  (*iv_hashcmpproc)(char *name1, void *value1, char *name2, void *value2);
 typedef void * (*iv_hashaddproc)(void *data);
 typedef void (*iv_hashdelproc)(void *data);
 typedef void (*iv_panelupdateshandler)(int x, int y, int w, int h);
+
+typedef iv_voidfunc iv_eventsnotifierfunc;
 
 
 struct TransparentDefinition
@@ -1137,13 +1267,35 @@ typedef struct icanvas_s {
 
     int width;
     int height;
+    /**
+     * @brief scanline number of bytes in one line
+     */
     int scanline;
+    /**
+     * @brief depth is number of bits ber pixel (to get bytes do `depth >> 3`)
+     */
     int depth;
     int clipx1, clipx2;
     int clipy1, clipy2;
-    unsigned char *addr;
+    uint8_t *addr;
 
 } icanvas;
+
+typedef struct iv_bitmap_ref_s {
+    size_t width;
+    size_t height;
+    /**
+     * @brief scanline number of bytes in one line
+     */
+    size_t scanline;
+    /**
+     * @brief depth is number of bits ber pixel (to get bytes do `depth >> 3`)
+     */
+    uint8_t depth;
+    uint8_t *data;
+} iv_bitmap_ref;
+
+iv_bitmap_ref iv_bitmap_ref_from_canvas(icanvas* canvas);
 
 // Struct for context menu properties
 typedef struct icontext_menu_properties_s {
@@ -1415,6 +1567,18 @@ typedef struct iv_filetype_s {
 
 } iv_filetype;
 
+typedef enum {
+    MimetypeUnknown,
+    MimetypeBmp,
+    MimetypeJpg,
+    MimetypePng,
+} iv_mimetype;
+
+typedef struct iv_mimetype_s {
+    iv_mimetype mimetype;
+    char extension[8];
+} iv_mimetype_info;
+
 typedef struct iv_template_s {
 
     int width;
@@ -1545,13 +1709,15 @@ typedef struct taskinfo_s {
 
 #define MT_QUEUE_LEN 10 //Max length of Multi touch history in one container
 #define MT_SECTION_LEN 2 //Max slot number (fingers)
-#define MT_CONTAINER_QUEUE_LEN 10 //Max number of containers
+#define MT_CONTAINER_QUEUE_LEN 20 //Max number of containers
 
 typedef struct iv_mtinfo_s {
     bool active;
     int x;
     int y;
     int pressure;
+    int tilt_x;
+    int tilt_y;
     enum input_dev_e devtype;
     long long timems;
 } iv_mtinfo;
@@ -1666,8 +1832,15 @@ typedef struct bt_service_obj_s {
 typedef enum audio_output_e {
 	AUDIO_OUT_NONE = 0,
 	AUDIO_OUT_HP,
-	AUDIO_OUT_BT
+	AUDIO_OUT_BT,
+	AUDIO_OUT_SPEAKER,
+	AUDIO_OUT_USB_SND
 } audio_output_t;
+
+/*
+ * Return current audio output device, which used as audio sink.
+ */
+audio_output_t GetAudioOutput();
 
 typedef struct {
 	audio_output_t type;
@@ -1692,6 +1865,8 @@ typedef struct icolor_map_s {
 
 } icolor_map;
 
+void stacktrace_dump();
+
  /**
   * Enum APPLICATION_ATTRIBUTE wich can be used for setting current application attributes
   * @see SetCurrentApplicationAttribute, TestCurrentApplicationAttribute
@@ -1705,14 +1880,43 @@ typedef enum
 } APPLICATION_ATTRIBUTE;
 
 void OpenScreen();
+int IsScreenOpened(); // 1 if opened else 0
 void OpenScreenExt();
 void InkViewMain(iv_handler h);
 void CloseApp();
 void InitInkview(int reg_flags);
 
+iv_vector2i iv_new_vector2i(int x, int y);
+iv_vector2f iv_new_vector2f(float x, float y);
+iv_vector2d iv_new_vector2d(double x, double y);
+iv_vector2d iv_vec2i_to2d(iv_vector2i v);
+
+iv_matrix2i iv_new_matrix2i(int a00, int a01, int a10, int a11);
+iv_matrix2f iv_new_matrix2f(float a00, float a01, float a10, float a11);
+iv_matrix2d iv_new_matrix2d(double a00, double a01, double a10, double a11);
+
+iv_complex2f iv_new_complex2f(float real, float imaginary);
+iv_complex2d iv_new_complex2d(double real, double imaginary);
+
+
+/**
+ * @brief iv_new_identity_matrix2{i,f,d}
+ * creates matrix:
+ * | 1, 0 |
+ * | 0, 1 |
+ * @return identity matrix
+ */
+iv_matrix2i iv_new_identity_matrix2i();
+iv_matrix2f iv_new_identity_matrix2f();
+iv_matrix2d iv_new_identity_matrix2d();
+
+
+
 // Return irect struct
 
 irect iRect(int x, int y, int w, int h, int flags);
+iv_rect iv_new_rect(int x, int y, int w, int h, int flags);
+iv_rect iv_empty_rect();
 
 // Screen information
 
@@ -1742,7 +1946,49 @@ bool IsGSensorEnabled();
 //int GetGsensorMode(void);
 int GetGSensorOrientation();
 
+typedef enum default_orientation_type_e {
+    ORIENTATION_TYPE_AUTO = -1, // default value of s_default_orientation
+    ORIENTATION_TYPE_SELF = -2,
+    // 0, 1, 2, 3 - default fixed orientation
+} default_orientation_type;
+
+/**
+ * @brief SetActualGSensorOrientation - save last GSensor orientation
+ * @param orient - 0, 1, 2, 3, if -1 - save as 0
+ */
+void SetActualGSensorOrientation(int orient);
+int GetActualGSensorOrientation();
+void SetDefaultOrientation(int orient); // orient - default_orientation_type
+int GetDefaultOrientation(); // default_orientation_type
+/**
+ * @brief CheckAndSetUpSideDownOrientation
+ * @param orient: -1 - depend on default orientation
+ * @return
+ *      0  - nothing changed
+ *      1  - orientation changed
+ *      -1 - not support, if (default_orientation_type == ORIENTATION_TYPE_SELF)
+ */
+int CheckAndSetUpSideDownOrientation(int orient);
+int IsDeviceSupportUpSideDown();
+
 // Graphic functions. Color=0x00RRGGBB
+
+typedef enum {
+    UpOrientation = 0,        // 0
+    RightOrientation = 1,     // 90 clockwise
+    LeftOrientation = 2,      // 270
+    DownOrientation = 3,      // 180
+} iv_orientation;
+
+inline const char* IvStrOrientation(iv_orientation o) {
+    switch (o) {
+    case UpOrientation: return "UpOrientation";
+    case RightOrientation: return "RightOrientation";
+    case LeftOrientation: return "LeftOrientation";
+    case DownOrientation: return "DownOrientation";
+    default: return "UnknownOrientation";
+    }
+}
 
 enum eside {
     SIDE_NONE = 0,
@@ -1759,6 +2005,8 @@ enum edef_thickness {
     THICKNESS_DEF_SINGLE        = -1, // 1px
     THICKNESS_DEF_FOCUSED_FRAME = -2, // 4px for 300dpi
     THICKNESS_DEF_DIALOG_FRAME  = -3, // 8px for 300dpi
+    THICKNESS_DEF_MENU_BORDER   = -4, // 4px 616
+    THICKNESS_DEF_DOUBLE        = -5, // 2px
     THICKNESS_DEF_MAX           = -8, // used as max array size for default values
     RADIUS_DEPEND_ON_THICKNESS  = -100 // used for radius
 };
@@ -1793,6 +2041,16 @@ enum egradient {
     GRADIENT_RIGHT_LEFT  = 8, // right white, left transparent
 };
 
+enum updflags {
+    UPD_FULLSCREEN  = (1 << 16),  // full-screen update (whole screen area, any waveform)
+    UPD_CLEAR       = (1 << 17),  // use clearing over black
+    UPD_NOREFRESH   = (1 << 18),  // do not try to refresh area in case of collision
+    UPD_KEYBOARD    = (1 << 19),  // update come from keyboard
+    UPD_WAIT_BEFORE = (1 << 20),  // wait for update complete before this update
+    UPD_WAIT_AFTER  = (1 << 21),  // wait for update complete after this update
+    UPD_DITHER      = (1 << 22),  // apply dithering
+    UPD_NOIMPROVE   = (1 << 23),  // do not improve lines color
+};
 
 void ClearScreen();
 void SetClip(int x, int y, int w, int h);
@@ -1806,6 +2064,10 @@ void DrawLineEx(int x1, int y1, int x2, int y2, int color, int step);
 void DrawDashLine(int x1, int y1, int x2, int y2, int color, unsigned int fill, unsigned int space);
 void DrawRect(int x, int y, int w, int h, int color);
 void DrawRectRound(int, int, int, int, int, int);
+
+irect TriangleExternalRect(const iv_vector2i v[3], int flags);
+irect FillTriangularArea(const iv_vector2i v[3], int color, int externalRectFlags);
+
 void FillArea(int x, int y, int w, int h, int color);
 void FillAreaRect(const irect *rect, int color);
 void InvertArea(int x, int y, int w, int h);
@@ -1902,6 +2164,7 @@ void DrawPickOutEx(const irect *rect, const char *key);
 void DitherArea(int x, int y, int w, int h, int levels, int method);
 void DitherAreaQuick2Level(int dx, int dy, int dw, int dh);
 void DitherAreaPattern2Level(int dx, int dy, int dw, int dh);
+void MakeBW(iv_bitmap_ref* btmp, const iv_rect rect);
 void QuickFloyd16Dither(unsigned char * buffer, int row_size, int left, int top, int width, int height);
 void Stretch(const unsigned char *src, int format, int sw, int sh, int scanline, int dx, int dy, int dw, int dh, int rotate);
 void StretchArea(const unsigned char *src, int format, int sx, int sy, int sw, int sh, int scanline, int dx, int dy, int dw, int dh, int rotate);
@@ -1946,6 +2209,16 @@ void TransparentGradientRect(irect rect, /*egradient*/int direction);
 ibitmap *LoadBitmap(const char *filename);
 ibitmap *zLoadBitmap(void *zf, const char *filename);
 int SaveBitmap(const char *filename, const ibitmap *bm);
+/**
+ * @brief BitmapFromCanvas
+ * @param x
+ * @param y
+ * @param w
+ * @param h
+ * @param rotate - enum ROTATE0 | ROTATE90 | ROTATE270 | ROTATE180
+ * @param canvas
+ * @return
+ */
 ibitmap *BitmapFromCanvas(int x, int y, int w, int h, int rotate, icanvas *canvas);
 ibitmap *BitmapFromScreen(int x, int y, int w, int h);
 ibitmap *BitmapFromScreenR(int x, int y, int w, int h, int rotate);
@@ -1990,6 +2263,8 @@ int SavePNG(const char *path, const ibitmap *bmp);
 void SetTransparentColor(ibitmap **bmp, int color);
 ibitmap* CopyBitmapDepth4To8(const ibitmap* bmp);
 ibitmap* CopyBitmapDepth8To4(const ibitmap* bmp);
+ibitmap* CopyBitmapDepth24To8(const ibitmap* bmp);
+
 void MoveBitmap(ibitmap* bmp, int offset);
 void MoveBitmapRight(ibitmap* bm, int offset);
 // Only one side per call.
@@ -2064,6 +2339,10 @@ void TileBitmap(int x, int y, int w, int h, const ibitmap *src);
 ibitmap *CopyBitmap(const ibitmap *bm);
 void MirrorBitmap(ibitmap *bm, int m);
 
+
+void iv_inv_bitmap(ibitmap* bitmap);
+ibitmap *iv_copy_inv_bitmap(const ibitmap* bitmap);
+
 // Text functions
 
 char **EnumFonts();
@@ -2089,6 +2368,7 @@ void DrawStringR(int x, int y, const char *s);
 int TextRectHeight(int width, const char *s, int flags);
 int TextRectHeightEx(int width, int height, const char *s, int flags);
 int MinimalTextRectWidth(int w, const char *s);
+char *TextRectLastChar(int width, int height, const char *s);
 char *DrawTextRect(int x, int y, int w, int h, const char *s, int flags);
 char *DrawTextRect2(const irect *rect, const char *s);
 char *DrawTextRect3(int x, int y, int w, int h, const char *s, int flags, int * height);
@@ -2102,17 +2382,36 @@ void SetTextStrength(int n);
 
 // Screen update functions
 
+void UpdateEx(int x, int y, int w, int h, int flags);
+
 void FullUpdate();
 void FullUpdateHQ();
 void SoftUpdate();
 void SoftUpdateHQ();
 void PartialUpdate(int x, int y, int w, int h);
+void PartialUpdateTextPage(int x, int y, int w, int h);
 void PartialUpdateBlack(int x, int y, int w, int h);
 void PartialUpdateBW(int x, int y, int w, int h);
 void PartialUpdateHQ(int x, int y, int w, int h);
 void PartialUpdateDU4(int x, int y, int w, int h);
+void PartialUpdateTextPage(int x, int y, int w, int h);
 void DynamicUpdate(int x, int y, int w, int h);
+void DynamicUpdateWithoutImprovingLinesColor(int x, int y, int w, int h);
 void DynamicUpdateBW(int x, int y, int w, int h);
+
+
+iv_update_area iv_empty_update_area();
+iv_update_area iv_new_update_area(irect rect, irect prev_rect, bool need_update);
+iv_update_area iv_new_ptr_update_area(irect rect, irect prev_rect, bool *need_update);
+
+#ifdef __cplusplus
+void iv_update_screen(iv_update_area update_area, void (*partial_update)(int x, int y, int w, int h) = DynamicUpdateBW);
+void iv_update_many(iv_update_area *update_area, size_t count, void (*partial_update)(int x, int y, int w, int h) = DynamicUpdateBW);
+#else
+void iv_update_screen(iv_update_area update_area, void (*partial_update)(int x, int y, int w, int h));
+void iv_update_many(iv_update_area *update_area, size_t count, void (*partial_update)(int x, int y, int w, int h));
+#endif
+
 
 /**
   * Fast update of the screen area. This function call is asyncronous (return before update finished).
@@ -2144,6 +2443,11 @@ void FlushEvents();
 char *iv_evttype(int type);
 char IsAnyEvents();
 void PrepareForLoop(iv_handler hproc);
+void PrepareForLoopEx(void* ctx, iv_ctx_handler hproc);
+int IsEventLoopBlocked();
+int GetEventLoopBlockIntervalMicroseconds();
+void SetEventsNotifier(iv_eventsnotifierfunc func);
+
 void ClearOnExit();
 
 // Timer functions
@@ -2188,8 +2492,10 @@ void LoadKeyboard(const char *kbdlang);
 int GetKeyboardFlags();
 void OpenKeyboard(const char *title, char *buffer, int maxlen, int flags, iv_keyboardhandler hproc);
 void OpenKeyboardEx(const char *title, char *buffer, int maxlen, int flags, iv_keyboardhandlerex hproc, void* cb_data);
+void returnFocusToKeyboard(); // Only for non touch devices
 
-typedef void (*keyboard_text_change_callback)(void* context, const char* commit_string, int replace_from, int replace_length);
+typedef void (*keyboard_text_change_callback)(void* context, const char* commit_string, const char* text_before, int replace_from, int replace_length);
+
 void KeyboardProcessTextChanges(const char* text_before, const char* text_after);
 void KeyboardNotifyTextChanges(const char* text_before, const char* text_after);
 void setKeyboardTextChangeCallback(keyboard_text_change_callback cb, void * context);
@@ -2202,7 +2508,6 @@ int IsKeyboardOpened();
 void setDrawTopLine(int kbd_draw_top_line_);
 void OpenPageSelector(iv_pageselecthandler hproc);
 void OpenTimeEdit(const char *title, int x, int y, long intime, iv_timeedithandler hproc);
-void OpenDirectorySelector(const char *title, char *buf, int len, iv_dirselecthandler hproc);
 void OpenFontSelector(const char *title, const char *font, int with_size, iv_fontselecthandler hproc);
 void OpenFontSelectorEx(const ifont_menu *menu);
 ifont_menu GetFontMenuStruct();
@@ -2247,6 +2552,14 @@ void SetReadingMode(int enable, int after_time, int update);
 **/
 void SetPanelType(int type);
 int GetPanelType();
+
+typedef void(*iv_panel_type_change_handler)(void*, PANEL_FLAGS);
+
+iv_handler_descriptor IvAddPanelTypeChangeHandler(void* ctx, iv_panel_type_change_handler handler);
+bool IvRemovePanelTypeChangeHandler(iv_handler_descriptor descriptor);
+
+void SetFocusOnPanel(int focus);
+int IsPanelFocused();
 /**
  * @brief SetShowStatusBar is called to show enable/disable showing status bar in reader
  * @param show takes 0 to disable status bar, othe value to enable
@@ -2258,6 +2571,8 @@ int IsPanelSeparatorEnabled();
 void InitPanel();
 void SetPanelKeyForFullScreenEnabled(const char *key);
 void SetPanelTransparent(int value);
+void SetPanelInvert(int value);
+void SetShowPanelCenterIcon(int show);
 
 /**
  * @brief StartPanelProgress start gui animation on panel
@@ -2287,9 +2602,6 @@ void OpenControlPanel(control_panel * ctx);
 int  PanelHeight();
 int PanelHeightFBOffset();
 void SetKeyboardRate(int t1, int t2);
-int QuickNavigatorSupported(int flags);
-void QuickNavigator(int x, int y, int w, int h, int cx, int cy, int flags);
-void SetQuickNavigatorXY(int x, int y);
 
 // Functions for applications caption
 void DrawApplicationCaption(const char * caption, const irect *title_rect);
@@ -2320,10 +2632,12 @@ void CloseConfigNoSave(iconfig *cfg);
 
 int ReadInt(iconfig *cfg, const char *name, int deflt);
 long long ReadLongLong(iconfig *cfg, const char *name, long long deflt);
+float ReadFloat(iconfig *cfg, const char *name, float deflt);
 const char *ReadString(iconfig *cfg, const char *name, const char *deflt);
 const char *ReadSecret(iconfig *cfg, const char *name, const char *deflt);
 void WriteInt(iconfig *cfg, const char *name, int value);
 void WriteLongLong(iconfig *cfg, const char *name, long long value);
+void WriteFloat(iconfig*cfg, const char *name, float value, size_t precision);
 void WriteString(iconfig*cfg, const char *name, const char *value);
 void WriteSecret(iconfig *cfg, const char *name, const char *value);
 void WriteIntVolatile(iconfig *cfg, const char *name, int value);
@@ -2391,11 +2705,32 @@ int IsTaskActive();
 void GetPreviousTask(int *task, int *subtask);
 void GetPreviousTaskInStack(int *task, int *subtask);
 int GetTaskList(int *list, int size);
+/**
+ * @brief GetTaskInfo
+ * @param task - gid
+ * @return taskinfo struct ptr (you don`t need to free it manualy)
+ */
 taskinfo *GetTaskInfo(int task);
 int FindTaskByBook(const char *name, int *task, int *subtask);
 int FindTaskByAppName(const char *name);
+/**
+ * @brief SetTaskParameters - changes parameters of task
+ * @param task - task gid where to change params
+ * @param appname - new app name
+ * @param name - new title
+ * @param icon - new icon
+ * @param flags - new flags
+ * @return 1 if success otherwise 0
+ */
 int SetTaskParameters(int task, const char *appname, const char *name, ibitmap *icon, unsigned int flags);
 int SetSubtaskInfo(int task, int subtask, const char *name, const char *book);
+/**
+ * @brief SetActiveTask
+ * @note You can do exit() immediately after this call because singal is completely sent after returning from the function
+ * @param task - gid
+ * @param subtask
+ * @return
+ */
 int SetActiveTask(int task, int subtask);
 void GoToBackground();
 int CloseTask(int task, int subtask, int force);
@@ -2403,6 +2738,13 @@ int SendEventTo(int task, int type, int par1, int par2);
 int SendEventSyncTo(int task, int type, int par1, int par2);
 int SendMessageTo(int task, int request, void *message, int len);
 int SetRequestListener(int request, int flags, iv_requestlistener hproc);
+
+typedef struct {
+    int status;
+    void *ctx;
+} iv_set_request_listener_ex_result;
+
+iv_set_request_listener_ex_result SetRequestListenerEx(int request, int flags, void* ctx, iv_requestlistener_ex hproc);
 int SendRequest(int request, void *data, int inlen, int outlen, int timeout);
 int SendRequestNoWait(int request, void *data, int inlen, int outlen);
 int SendRequestTo(int task, int request, void *data, int inlen, int outlen, int timeout);
@@ -2413,6 +2755,13 @@ void OpenTaskList();
 icanvas *GetTaskFramebuffer(int task);
 iv_fbinfo *GetTaskFramebufferInfo (int task);
 void ReleaseTaskFramebuffer(icanvas *fb);
+
+/**
+ * @brief TaskNameToHumanName - translate app name in human format. Result should be free by caller
+ * @param appname - taskinfo->appname
+ * @return strdup(humanName)
+ */
+char *TaskNameToHumanName(const char *appname);
 void iv_wait_task_activation(int timeout);
 
 /*
@@ -2539,13 +2888,23 @@ long iv_ipc_request_with_timeout(long type, long param, unsigned char *data, int
 
 const char* currentLang();
 char ** EnumLanguages();
+
+void DumpLanguage();
+void LoadLanguageFromStream(const char *lang, FILE *f, FILE *ef);
 void LoadLanguage(const char *lang);
+
 void AddTranslation(const char *label, const char *trans);
 // return translation for current language, do translate on english
 const char *GetCurrentLangText(const char *s);
 const char *GetLangText(const char *s);
-const char *GetLangTextF(const char *s, ...);
-const char *GetLangTextPlural(const char *s, int amount);
+
+int FormattedDate(char* buf, size_t max_size, time_t t);
+
+#ifdef __cplusplus
+[[deprecated("use iv_lang_format")]]
+#endif
+const char *GetLangTextF(const char *s, ...) __attribute__ ((deprecated));
+const char *GetLangTextPlural(const char *s, double amount);
 
 int iv_lang_format(char *dst, size_t max_size, const char *format_key, ...);
 
@@ -2569,7 +2928,7 @@ int iv_lang_format(char *dst, size_t max_size, const char *format_key, ...);
  * <key_words1>, <key_words2> - optional if need for detalize key
  * <am.pm> - if AM/PM time format turned on in settings, auto add "_12" in function.
  */
-int GetLangTime(char *buf, int size, const char *key, struct tm *t);
+int GetLangTime(char *buf, size_t size, const char *key, struct tm *t, struct tm *current_time);
 void SetRTLBook(int rtl);
 int IsRTL();  // depends only on the system language
 int IsBookRTL();	// can be overwritten by application
@@ -2627,6 +2986,9 @@ int GetProfilesCount();
 
 char ** EnumThemes();
 void OpenTheme(const char *path);
+
+extern const char* iv_broken_image;
+
 ibitmap *GetResource(const char *name, const ibitmap *deflt);
 int GetThemeInt(const char *name, int deflt);
 const char *GetThemeString(const char *name, const char *deflt);
@@ -2664,6 +3026,8 @@ iv_filetype *FileType(const char *path);
 iv_filetype *FileTypeExt(const char *path, struct stat *f_stat);
 void SetFileHandler(const char *path, const char *handler);
 const char *GetFileHandler(const char *path);
+iv_mimetype_info GetMimeTypeBuf(const char *buf, size_t size);
+iv_mimetype_info GetMimeType(const char *path);
 void PackParameters(int argc, const char * const * argv, void ** data, int * len);
 void UnpackParameters(void * data, int len, int * argc, char *** argv);
 int OpenBook(const char *path, const char *parameters, int flags);
@@ -2702,50 +3066,110 @@ typedef struct AudioPlayingInfo_s {
     int play_state;
 } AudioPlayingInfo;
 
+bool IvTTSSupported();
+
+/**
+ * @brief IvBadDynamicUpdate
+ * @return true if current device has bad looking dynamic update and a2 is prefered
+ */
+bool IvBadDynamicUpdate();
+
+
 void OpenPlayer();
-void ClosePlayer();
-void PlayFile(const char *filename);
-void LoadPlaylist(char **pl);
-char **GetPlaylist();
-void PlayTrack(int n);
-void PreviousTrack();
-void NextTrack();
-int GetCurrentTrack();
-int GetTrackSize();
-void SetTrackPosition(int pos);
-int GetTrackPosition();
-void SetPlayerState(int state);
-int GetPlayerState();
-void SetPlayerMode(int mode);
-int GetPlayerMode();
 void TogglePlaying();
 void SetVolume(int n);
 int GetVolume();
-void SetEqualizer(int *eq);
-void GetEqualizer(int *eq);
 int SetAudioPlayingInfo(const AudioPlayingInfo info);
 int GetAudioPlayingInfo(AudioPlayingInfo *info);
 
-int GetHighVolumeTimeout();
-void ResetHighVolumeTimeout();
-void IncreaseHighVolumeInterval(int value);
-void LoadHighVolumeTimeout();
-void SaveHighVolumeTimeout();
-int GetSafeVolumeLimit();
-int GetHighVolumeMaxInterval();
-
 // Dictionary functions
 
-char **EnumDictionaries();
-char **EnumDictionariesFiles();
-char **EnumDictionariesFilesCallAfterEnumDictionaries();
-const char * GetKeyboardLayoutForOpenedDictionary();
-int OpenDictionary(const char *name);
-void CloseDictionary();
-int LookupWord(const char *what, char **word, char **trans);
-int LookupWordExact(const char *what, char **word, char **trans);
-int LookupPrevious(char **word, char **trans);
-int LookupNext(char **word, char **trans);
+
+
+
+#ifdef __cplusplus
+[[deprecated("use c++ version `pb/dictionary/dictionary.hpp` or C `pb/dictionary/dictionary.h`")]]
+#endif
+char **EnumDictionaries() __attribute__ ((deprecated));
+
+#ifdef __cplusplus
+[[deprecated("use c++ version `pb/dictionary/dictionary.hpp` or C `pb/dictionary/dictionary.h`")]]
+#endif
+char **EnumDictionariesFiles() __attribute__ ((deprecated));
+
+#ifdef __cplusplus
+[[deprecated("use c++ version `pb/dictionary/dictionary.hpp` or C `pb/dictionary/dictionary.h`")]]
+#endif
+char **EnumDictionariesFilesCallAfterEnumDictionaries() __attribute__ ((deprecated));
+
+#ifdef __cplusplus
+[[deprecated("use c++ version `pb/dictionary/dictionary.hpp` or C `pb/dictionary/dictionary.h`")]]
+#endif
+const char * GetKeyboardLayoutForOpenedDictionary() __attribute__ ((deprecated));
+
+#ifdef __cplusplus
+[[deprecated("use c++ version `pb/dictionary/dictionary.hpp` or C `pb/dictionary/dictionary.h`")]]
+#endif
+bool haveDictionaryKeyboard() __attribute__ ((deprecated));
+
+
+/**
+ * @brief OpenDictionary (need to be called before all operation with dictionary such as LookupWord, LookupWordExact, GetWordListWithPrefix, ...)
+ * @param name - name of dictionary
+ * @return 1 if success else 0
+ */
+#ifdef __cplusplus
+[[deprecated("use c++ version `pb/dictionary/dictionary.hpp` or C `pb/dictionary/dictionary.h`")]]
+#endif
+bool OpenDictionary(const char *name) __attribute__ ((deprecated));
+
+#ifdef __cplusplus
+[[deprecated("use c++ version `pb/dictionary/dictionary.hpp` or C `pb/dictionary/dictionary.h`")]]
+#endif
+void CloseDictionary() __attribute__ ((deprecated));
+
+#ifdef __cplusplus
+[[deprecated("use c++ version `pb/dictionary/dictionary.hpp` or C `pb/dictionary/dictionary.h`")]]
+#endif
+const char* DictionaryOpened() __attribute__ ((deprecated));
+
+#define LOOKUP_WORD_FOUND_EXACT 2
+#define LOOKUP_WORD_FOUND_SIMILAR 1
+#define LOOKUP_WORD_NOT_FOUND 0
+/**
+ * @brief LookupWord
+ * @param what - input
+ * @param word - exact word (output)
+ * @param trans - translation (output)
+ * @return LOOKUP_WORD_FOUND_EXACT | LOOKUP_WORD_FOUND_SIMILAR | LOOKUP_WORD_NOT_FOUND
+ */
+
+#ifdef __cplusplus
+[[deprecated("use c++ version `pb/dictionary/dictionary.hpp` or C `pb/dictionary/dictionary.h`")]]
+#endif
+int LookupWord(const char *what, char **word, char **trans) __attribute__ ((deprecated));
+
+/**
+ * @brief LookupWordExact
+ * @param what - input
+ * @param word - exact word (output)
+ * @param trans - translation (output)
+ * @return LOOKUP_WORD_FOUND_EXACT | LOOKUP_WORD_FOUND_SIMILAR | LOOKUP_WORD_NOT_FOUND
+ */
+#ifdef __cplusplus
+[[deprecated("use c++ version `pb/dictionary/dictionary.hpp` or C `pb/dictionary/dictionary.h`")]]
+#endif
+int LookupWordExact(const char *what, char **word, char **trans) __attribute__ ((deprecated));
+
+#ifdef __cplusplus
+[[deprecated("use c++ version `pb/dictionary/dictionary.hpp` or C `pb/dictionary/dictionary.h`")]]
+#endif
+int LookupPrevious(char **word, char **trans) __attribute__ ((deprecated));
+
+#ifdef __cplusplus
+[[deprecated("use c++ version `pb/dictionary/dictionary.hpp` or C `pb/dictionary/dictionary.h`")]]
+#endif
+int LookupNext(char **word, char **trans) __attribute__ ((deprecated));
 
 /**
  * @brief GetWordListWithPrefix get up to maxWords words with given prefix from current dictionary.
@@ -2755,14 +3179,10 @@ int LookupNext(char **word, char **trans);
  * @param wordList - resulting list of words (in utf-8), caller should not free the list
  * @return number of words found or 0 on error
  */
-int GetWordListWithPrefix(const char *prefix_utf8, int maxWords, char ***wordList);
-
-void OpenDictionaryView(iv_wlist *wordlist, const char *dicname);
-void OpenControlledDictionaryView(pointer_to_word_hand_t pointer_handler, iv_wlist *wordlist, const char *dicname);
-void OpenFastTranslation(pointer_to_word_hand_t pointer_handler, iv_wlist *wordlist, int pos, const char *dicname);
-
-
-
+#ifdef __cplusplus
+[[deprecated("use c++ version `pb/dictionary/dictionary.hpp` or C `pb/dictionary/dictionary.h`")]]
+#endif
+int GetWordListWithPrefix(const char *prefix_utf8, int maxWords, char ***wordList) __attribute__ ((deprecated));
 
 // Text reflow API
 
@@ -2798,16 +3218,28 @@ void iv_fullscreen();
 void iv_nofullscreen();
 void iv_sleepmode(int on);
 int GetSleepmode();
+
+/// from 0 to 100
 int GetBatteryPower();
 int GetTemperature();
 int IsCharging();
 int IsUSBconnected();
 int IsSDinserted();
-int IsPlayingMP3();
 int IsKeyPressed(int key);
 char *GetDeviceModel();
 char *GetHardwareType();
 char *GetSoftwareVersion();
+/**
+ * @brief IvReadVersionFromFirmwareFile - read version from header of SWUPDATE.BIN file
+ * @param output - buffer where result will be placed
+ * @param max_length - max len of buffer
+ * @param path - path to SWUPDATE.BIN
+ * @return true when suceess
+ */
+bool IvReadVersionFromFirmwareFile(char *output, size_t max_length, const char* path);
+
+
+
 /*
  * Check if usb storage is attached
  */
@@ -2827,6 +3259,14 @@ void usbStorEject();
  */
 char *usbStorSerialNumber(void);
 
+/*
+ * Return true if usb sound card connected via OTG
+ */
+bool isUsbSndAttached(void);
+/*
+ * Eject usb sound card (DAC)
+ */
+void usbSndEject();
 /*
  * Caller need sreader rights,
  * device_model - free by caller
@@ -2860,8 +3300,26 @@ int TouchScreenEnable(bool onOff);
 bool IsTouchScreenEnabled(void);
 
 void OpenCalendar();
+/**
+ * @brief StartSoftwareUpdate - IvStartSoftwareUpdateEx always with dialog
+ * @return
+ */
 int StartSoftwareUpdate();
-int HavePowerForSoftwareUpdate();
+
+
+typedef enum iv_start_software_update_result_e {
+    SWU_NOT_ENOUGH_POWER,
+    SWU_TIMEOUT,
+    SWU_NOT_AVAILEBLE_ON_EMULATOR
+} iv_start_software_update_result;
+
+/**
+ * @brief IvStartSoftwareUpdateEx
+ * @param withDialog
+ * @return
+ */
+iv_start_software_update_result IvStartSoftwareUpdateEx(bool withDialog);
+bool HavePowerForSoftwareUpdate();
 
 /*
  * If your task has done all work at this time, you may use this function
@@ -2952,12 +3410,42 @@ bool IsFlightModeEnabled();
 char **EnumWirelessNetworks();
 char **EnumConnections();
 int GetBTservice(const char *mac, const char *service);
+/**
+ * @brief NetConnect - shows dilaog asking user to connect to wifi and than connecting
+ * @param name - name of network (NULL means to use last connection)
+ * @note showHourglass is always showing
+ * @return NET_OK if syccesfully connected or NET_* if error
+ */
 int NetConnect(const char *name);
-int NetConnect2(const char *name, int showHourglass);
+/**
+ * @brief NetConnect2 - shows dilaog asking user to connect to wifi and than connecting
+ * @param name - name of network (NULL means to use last connection)
+ * @param showHourglass
+ * @return NET_OK if syccesfully connected or NET_* if error
+ */
+int NetConnect2(const char *name, bool showHourglass);
+/**
+ * @brief NetConnectSilent - try to connect to wifi without showing any dialogs
+ * @param name - name of network (NULL means to use last connection)
+ * @return NET_OK if syccesfully connected or NET_* if error
+ */
 int NetConnectSilent(const char *name);
+/**
+ * @brief NetConnectAsync - same as NetConnect byt not locking thread
+ * @param cb - callback (status: NET_*)
+ * @return always 0
+ */
 int NetConnectAsync(int (*cb)(int status));
 int NetDisconnect();
 int NetDisconnectAsync(int (*cb)(int status));
+
+/**
+ * @brief NetConnect3 - blocking function
+ * @param silent - not showing question dialog if silent
+ * @return true if connected by any reasons
+ */
+bool NetConnect3(bool silent);
+
 iv_netinfo *NetInfo();
 void OpenNetworkInfo();
 char *GetUserAgent();
@@ -3331,9 +3819,6 @@ int isHighPriorityJobRunning();
 void startHighPriorityJob(int job_id, int timeout_sec); // Set high priority job status for timeout_sec
 void finishHighPriorityJob(int job_id);
 
-
-int haveDictionaryKeyboard();
-
 typedef int (*usleep_func_t)(__useconds_t __useconds);
 
 int iv_usleep (__useconds_t __useconds);
@@ -3345,6 +3830,16 @@ int IsUpdateInProcess();
 int PendingHwEventsCount();
 
 int configureAudioOutput();
+
+/**
+ * @brief configureAudioOutputBlind - connect to first bluetooth device in active search mode
+ */
+int configureAudioOutputBlind();
+
+/**
+ * @brief configureAudioOutputBTOnAuto - as configureAudioOutput but with auto on bluetooth
+ */
+int configureAudioOutputBTOnAuto();
 
 /**
  * @brief setAvrcpMetadata - set properties to be visible through avrcp
@@ -3465,6 +3960,36 @@ int StartScanBTLE(void (*cb)(void *cb_data, const char *mac, const char *name), 
  */
 int StopScanBTLE();
 
+#define CONFIGSTORAGESIZE 4096
+/*
+ * Size of Config slot is defined by CONFIGSTORAGESIZE (4k) included signature
+ */
+typedef enum {
+	ConfigStorage_1 = 0,
+	ConfigStorage_2,
+	ConfigStorage_3,
+	ConfigStorage_4
+} ConfigStorageSlot_t;
+
+typedef struct {
+	char sign[64];
+} ConfigStorageSert;
+
+typedef enum {
+	IOC_CONFIGSTORAGE_RESULT_FAIL 	= 0,
+	IOC_CONFIGSTORAGE_RESULT_OK,
+} IocConfigStorageResult_t;
+
+/*
+ * Returns < 0 if error happened otherwise IocConfigStorageResult_t
+ */
+int ReadConfigStorage(ConfigStorageSlot_t num, void *data, size_t *data_size, ConfigStorageSert *sert);
+
+/*
+ * Returns < 0 if error happened otherwise IocConfigStorageResult_t
+ */
+int WriteConfigStorage(ConfigStorageSlot_t num, void *data, size_t data_size, ConfigStorageSert sert);
+
 int design_to_pixel(int v);
 
 typedef enum software_localization_type_e {
@@ -3477,7 +4002,438 @@ typedef enum software_localization_type_e {
 
 software_localization_type GetSoftwareLocalizationType();
 
+const char* LocalizationTypeToStr(software_localization_type type);
+
+bool iv_debug_mode();
+
+bool iv_exit_on_error();
+
+/**
+ * @brief GetTimeDiffInDays
+ * return count of days between to timestamp (according to calendar)
+ */
+int IvGetTimeDiffInDays(struct tm* t, struct tm* current_time);
+
+/**
+ * time
+ */
+
+int IvTimeToRelativeHumanDate(char* output, size_t buffer_size, struct tm* time, struct tm* current_time);
+
+/**
+ * @brief IvReleaseTime
+ * @return release time of current firmware
+ */
+time_t IvReleaseTime();
+
+/**
+ * iv_sleep_preventor
+ */
+
+extern const long long iv_sleep_preventor_timeout_ms;
+
+typedef struct iv_sleep_preventor_s {
+    const char* name;
+    bool forbidden;
+} iv_sleep_preventor_t;
+
+void iv_sleep_preventor_start(iv_sleep_preventor_t *sleep_preventor);
+void iv_sleep_preventor_stop(iv_sleep_preventor_t *sleep_preventor);
+inline iv_sleep_preventor_t iv_new_sleep_preventor(const char* name) {
+    return (iv_sleep_preventor_t){ name, false };
+}
+
+inline iv_sleep_preventor_t iv_new_sleep_preventor_started(const char* name) {
+    iv_sleep_preventor_t result = iv_new_sleep_preventor(name);
+    iv_sleep_preventor_start(&result);
+    return result;
+}
+
+
+/**
+ *
+ * IV_MATH NAMESPACE
+ *
+ */
+
+
+/**
+ * @brief iv_math_{max,min}{d,i,f} standart max/min functions`
+ */
+
+int iv_math_minf(float a, float b);
+int iv_math_maxf(float a, float b);
+
+int iv_math_mind(double a, double b);
+int iv_math_maxd(double a, double b);
+
+int iv_math_mini(int a, int b);
+int iv_math_maxi(int a, int b);
+
+
+
+/**
+ * @brief iv_math_map{d,i,f,s,u} converts `value` from range `{ min_in, max_in }` to range `{ min_out, max_out }`
+ */
+
+
+float iv_math_mapf(float value, float min_in, float max_in, float min_out, float max_out);
+/**
+ * @brief iv_math_mapd
+ * @param value - value you want to map (value must be from `min_in` to `max_in`)
+ * @param min_in
+ * @param max_in
+ * @param min_out
+ * @param max_out
+ * @return nan if max_in == min_in else maped value to new range (result if from `min_out` to `max_out`)
+ */
+double iv_math_mapd(double value, double min_in, double max_in, double min_out, double max_out);
+int iv_math_mapi(int value, int min_in, int max_in, int min_out, int max_out);
+short iv_math_maps(short value, short min_in, short max_in, short min_out, short max_out);
+unsigned iv_math_mapu(unsigned value, unsigned min_in, unsigned max_in, unsigned min_out, unsigned max_out);
+
+
+/**
+ * @brief iv_math_cross_product2{d,i,f} https://www.nagwa.com/en/explainers/175169159270/
+ */
+
+double iv_math_cross_product2d(iv_vector2d p0, iv_vector2d p1);
+float iv_math_cross_product2f(iv_vector2f p0, iv_vector2f p1);
+int iv_math_cross_product2i(iv_vector2i p0, iv_vector2i p1);
+
+/**
+ * @brief iv_add2{i,f,d} provides vector sum
+ * @param vector0
+ * @param vector1
+ * @return vector0 + vector1
+ */
+iv_vector2i iv_add2i(iv_vector2i vector0, iv_vector2i vector1);
+iv_vector2f iv_add2f(iv_vector2f vector0, iv_vector2f vector1);
+iv_vector2d iv_add2d(iv_vector2d vector0, iv_vector2d vector1);
+/**
+ * @brief iv_sub2{i,f,d} provides vector subtraction
+ * @param vector0
+ * @param vector1
+ * @return vector0 - vector1
+ */
+iv_vector2i iv_sub2i(iv_vector2i vector0, iv_vector2i vector1);
+iv_vector2f iv_sub2f(iv_vector2f vector0, iv_vector2f vector1);
+iv_vector2d iv_sub2d(iv_vector2d vector0, iv_vector2d vector1);
+/**
+ * @brief iv_mul2{i,f,d} provides vector with scalar multiplication
+ * @param vector0
+ * @param scalar
+ * @return vector0 * scalar
+ */
+iv_vector2i iv_mul2i(iv_vector2i vector, int scalar);
+iv_vector2f iv_mul2f(iv_vector2f vector, float scalar);
+iv_vector2d iv_mul2d(iv_vector2d vector, double scalar);
+/**
+ * @brief iv_div2i provides vector with scalar division
+ * @param vector0
+ * @param scalar
+ * @return vector0 / scalar
+ */
+iv_vector2i iv_div2i(iv_vector2i vector, int scalar);
+iv_vector2f iv_div2f(iv_vector2f vector, float scalar);
+iv_vector2d iv_div2d(iv_vector2d vector, double scalar);
+/**
+ * @brief iv_matvec_mul2{i, f, d} provides 2d matrix with vector multiplication
+ * @param matrix
+ * @param vector
+ * @return matrix * vector
+ */
+iv_vector2i iv_matvec_mul2i(iv_matrix2i matrix, iv_vector2i vector);
+iv_vector2f iv_matvec_mul2f(iv_matrix2f matrix, iv_vector2f vector);
+iv_vector2d iv_matvec_mul2d(iv_matrix2d matrix, iv_vector2d vector);
+/**
+ * @brief iv_rotvec_mul2i provides 2d rotor matrix with vector multiplication
+ * @param rotor matrix
+ * @param vector
+ * @param center of rotation
+ * @return matrix * vector
+ */
+iv_vector2i iv_rotvec_mul2i(iv_matrix2d matrix, iv_vector2i vector, iv_vector2i center);
+
+/**
+ * @brief iv_matrix_mul2{i, f, d} provides 2d matrix multiplication
+ * @param matrix0
+ * @param matrix1
+ * @return matrix0 * matrix1
+ */
+iv_matrix2i iv_matrix_mul2i(iv_matrix2i matrix0, iv_matrix2i matrix1);
+iv_matrix2f iv_matrix_mul2f(iv_matrix2f matrix0, iv_matrix2f matrix1);
+iv_matrix2d iv_matrix_mul2d(iv_matrix2d matrix0, iv_matrix2d matrix1);
+/**
+ * @brief iv_matrix_from_angle2{f, d} constructs rotor 2d matrix from angle in radians
+ * @param angle
+ * @return matrix
+ */
+iv_matrix2f iv_matrix_from_angle2f(float angle);
+iv_matrix2d iv_matrix_from_angle2d(double angle);
+
+/**
+ * @brief iv_abs_vector2{i,f,d} make vector with absolute coordinated
+ * @param vector
+ * @return vector2 { |vector.x|, |vector.y| }
+ */
+iv_vector2i iv_abs_vector2i(iv_vector2i vector);
+iv_vector2f iv_abs_vector2f(iv_vector2f vector);
+iv_vector2d iv_abs_vector2d(iv_vector2d vector);
+
+/**
+ * @brief iv_avr_vector2{i,f,d} make average vector of who another
+ * @param vector0
+ * @param vector1
+ * @return (vector0 + vector1) / 2
+ */
+iv_vector2i iv_avr_vector2i(iv_vector2i vector0, iv_vector2i vector1);
+iv_vector2f iv_avr_vector2f(iv_vector2f vector0, iv_vector2f vector1);
+iv_vector2d iv_avr_vector2d(iv_vector2d vector0, iv_vector2d vector1);
+
+
+/**
+ * @brief iv_eq_matrix2{i,f,d} test equality of matrices
+ * @param matrix0
+ * @param matrix1
+ * @return true if equal
+ */
+bool iv_eq_matrix2i(iv_matrix2i matrix0, iv_matrix2i matrix1);
+bool iv_eq_matrix2f(iv_matrix2f matrix0, iv_matrix2f matrix1);
+bool iv_eq_matrix2d(iv_matrix2d matrix0, iv_matrix2d matrix1);
+
+
+/**
+ * @brief iv_to_radians{f,d} converts degrees to radians
+ * @param degrees
+ * @return degrees × π / 180°
+ */
+float iv_to_radiansf(float degrees);
+/**
+ * @brief iv_to_radians{f,d} converts degrees to radians
+ * @param degrees
+ * @return degrees × π / 180°
+ */
+double iv_to_radiansd(double degrees);
+
+/**
+ * @brief iv_to_degrees{f,d} converts radians to degrees
+ * @param radians
+ * @return radians × 180° / π
+ */
+float iv_to_degreesf(float radians);
+/**
+ * @brief iv_to_degrees{f,d} converts radians to degrees
+ * @param radians
+ * @return radians × 180° / π
+ */
+double iv_to_degreesd(double radians);
+
+
+/**
+ * @brief iv_complex_add2d provides complex sum
+ * @param complex number 0
+ * @param complex number 1
+ * @return (r0 + r1, i0 + i1)
+ */
+iv_complex2d iv_complex_add2d(iv_complex2d num0, iv_complex2d num1);
+/**
+ * @brief iv_complex_sub2d provides complex subtraction
+ * @param complex number 0
+ * @param complex number 1
+ * @return (r0 - r1, i0 - i1)
+ */
+iv_complex2d iv_complex_sub2d(iv_complex2d num0, iv_complex2d num1);
+/**
+ * @brief iv_complex_mul2{f,d} provides complex multiplication
+ * @param complex number 0
+ * @param complex number 1
+ * @return (r0 * r1 - i0 * i1, r0 * i1 + r1 * i0)
+ */
+iv_complex2f iv_complex_mul2f(iv_complex2f num0, iv_complex2f num1);
+iv_complex2d iv_complex_mul2d(iv_complex2d num0, iv_complex2d num1);
+
+
+
+/**
+ * @brief iv_complex_from_angle2d creates complex rotor from angle in radians
+ * @param angle
+ * @return cos θ + i sin θ
+ */
+iv_complex2d iv_complex_from_angle2d(double angle);
+
+
+/**
+ * @brief iv_complex_from_graw_flags creates complex rotor for rotation component of draw flags
+ * @param flags
+ * @return -Pi if ROTATE else 0
+ */
+iv_complex2d iv_complex_from_draw_flags(int flags);
+
+
+/**
+ * @brief iv_complex_rotvec_mul2{i,f,d} rotates vector by complex rotor
+ * @param rotor complex namber
+ * @param vector to rotate
+ * @param center of rotation
+ * @return rotated vector
+ */
+iv_vector2i iv_complex_rotvec_mul2i(iv_complex2d rotor, iv_vector2i vector, iv_vector2i center);
+/**
+ * @brief iv_complex_rotvec_mul2{i,f,d} rotates vector by complex rotor
+ * @param rotor complex namber
+ * @param vector to rotate
+ * @param center of rotation
+ * @return rotated vector
+ */
+iv_vector2f iv_complex_rotvec_mul2f(iv_complex2f rotor, iv_vector2f vector, iv_vector2f center);
+/**
+ * @brief iv_complex_rotvec_mul2{i,f,d} rotates vector by complex rotor
+ * @param rotor complex namber
+ * @param vector to rotate
+ * @param center of rotation
+ * @return rotated vector
+ */
+iv_vector2d iv_complex_rotvec_mul2d(iv_complex2d rotor, iv_vector2d vector, iv_vector2d center);
+
+/**
+ * @brief iv_eq_complex2{f,d} test equality of complex numbers
+ * @param num0
+ * @param num1
+ * @return true of equals
+ */
+bool iv_eq_complex2f(const iv_complex2f num0, const iv_complex2f num1);
+/**
+ * @brief iv_eq_complex2{f,d} test equality of complex numbers
+ * @param num0
+ * @param num1
+ * @return true of equals
+ */
+bool iv_eq_complex2d(const iv_complex2d num0, const iv_complex2d num1);
+
+/**
+ * @brief iv_eq_vector2{i,f,d} test equality of vectors
+ * @param vector0
+ * @param vector1
+ * @return true of equals
+ */
+bool iv_eq_vector2i(const iv_vector2i vector0, const iv_vector2i vector1);
+bool iv_eq_vector2f(const iv_vector2f vector0, const iv_vector2f vector1);
+bool iv_eq_vector2d(const iv_vector2d vector0, const iv_vector2d vector1);
+
+bool iv_eq_f(float scalar0, float scalar1);
+bool iv_eq_d(double scalar0, double scalar1);
+
+/**
+ * @brief iv_from_design{1,2}{i,f,d} converts pixels from design pixels to destination device pixels
+ * @param scalar | vector
+ * @return scalar | vector
+ */
+int iv_from_design1i(const int scalar);
+float iv_from_design1f(const float scalar);
+double iv_from_design1d(const double scalar);
+iv_vector2i iv_from_design2i(const iv_vector2i vec);
+iv_vector2f iv_from_design2f(const iv_vector2f vec);
+iv_vector2d iv_from_design2d(const iv_vector2d vec);
+
+/**
+ * @brief iv_random_d (rand based)
+ * @return random number from 0 to 1
+ */
+double iv_random_d();
+
+/**
+ * @brief iv_sign2{i,f,d} returns signs (example { 20, -123 } -> { 1, -1 })
+ * @param vec
+ * @return
+ */
+iv_vector2i iv_sign2i(const iv_vector2i vec);
+iv_vector2f iv_sign2f(const iv_vector2f vec);
+iv_vector2d iv_sign2d(const iv_vector2d vec);
+
+/*
+ * GetScreenModeInversion, SetScreenModeInversion: change global screen mode flag
+ * (to be used from settings app)
+ */
+bool IvGetScreenModeInversion(void);
+void IvSetScreenModeInversion(bool state);
+
+typedef enum iv_app_capability_e {
+    APP_CAPABILITY_SUPPORT_SCREEN_INVERSION = 1 << 0,
+    APP_CAPABILITY_USER                     = 1 << 1 // The first role that can be used for application-specific purposes.
+} iv_app_capability;
+
+/*
+ * Set/Get app capability bitfield mask defined by enum iv_app_capability_e
+ */
+void IvSetAppCapability(int caps);
+int IvGetAppCapability(void);
+
 char* ltrim_non_alphanum(const char* value);
+
+// Accessibility
+/**
+ * Accessibility command id
+ * ACCESSIBILITY_CMD_UNKNOWN - unknown command
+ * ACCESSIBILITY_CMD_NEXT - next focusable element
+ * ACCESSIBILITY_CMD_PREV - previous focusable element
+ * ACCESSIBILITY_CMD_LOOKUP - lookup element by coords (x,y) focusable element
+ * ACCESSIBILITY_CMD_OPEN - action for focusable element as user click on element in non-accessibility mode "click on button",
+ *                          "checked checkbox/radiobutton", etc.
+ * ACCESSIBILITY_CMD_LONGPRESS - action as touch long press on active item
+ * ACCESSIBILITY_CMD_BACK - close popup or return to previous screen
+ * ACCESSIBILITY_CMD_SLIDER_UP - increase slider value
+ * ACCESSIBILITY_CMD_SLIDER_DOWN - decrease slider value
+ * ACCESSIBILITY_CMD_SCROLL_LIST_UP - scroll list previous screen,
+ * ACCESSIBILITY_CMD_SCROLL_LIST_DOWN - scroll list next screen,
+ * ACCESSIBILITY_CMD_START_STOP_AUDIO - pause/resume reading a section, start/stop play audio (Audiobook, Music player)
+ */
+typedef enum
+{
+    ACCESSIBILITY_CMD_UNKNOWN = 0,
+    ACCESSIBILITY_CMD_NEXT,
+    ACCESSIBILITY_CMD_PREV,
+    ACCESSIBILITY_CMD_LOOKUP,
+
+    ACCESSIBILITY_CMD_OPEN,
+    ACCESSIBILITY_CMD_LONGPRESS,
+
+    ACCESSIBILITY_CMD_BACK,
+
+    ACCESSIBILITY_CMD_SLIDER_UP,
+    ACCESSIBILITY_CMD_SLIDER_DOWN,
+
+    ACCESSIBILITY_CMD_SCROLL_LIST_UP,
+    ACCESSIBILITY_CMD_SCROLL_LIST_DOWN,
+
+    ACCESSIBILITY_CMD_START_STOP_AUDIO,
+
+} iv_accessibility_command_id;
+
+/**
+ *
+ * @brief Accessibility command with parameters
+ * @param id - accessibility command id
+ * @param x - pointer coord x for lookup command
+ * @param y - pointer coord y for lookup command
+ */
+typedef struct {
+    iv_accessibility_command_id id;
+    int x;
+    int y;
+} iv_accessibility_command;
+
+/**
+ * @brief IvAccessibilityGestureToCommand
+ * @param type - received type = EVT_ACCESSIBILITY_GESTURE in event handler
+ * @param par1 - received par1 in active event handler for type = EVT_ACCESSIBILITY_GESTURE
+ * @param par2 - received par2 in active event handler for type = EVT_ACCESSIBILITY_GESTURE
+ * @return iv_accessibility_command - ready command with parameters for accessibility
+ */
+iv_accessibility_command IvAccessibilityGestureToCommand(int type, int par1, int par2);
+
+bool is_accessibility_enabled();
+
 #ifdef __cplusplus
 }
 
