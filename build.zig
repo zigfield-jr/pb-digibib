@@ -2,30 +2,43 @@ const std = @import("std");
 const Step = std.Build.Step;
 
 pub fn build(b: *std.Build) void {
+    const target = b.resolveTargetQuery(.{
+        .cpu_arch = .arm,
+        .cpu_model = .{ .explicit = &std.Target.arm.cpu.cortex_a7 },
+        .os_tag = .linux,
+        .abi = .gnueabi,
+        .glibc_version = .{ .major = 2, .minor = 25, .patch = 0 }, // std.Io.Threaded.init_single_threaded
+    });
+    const optimize = b.standardOptimizeOption(.{});
+
+    const inkview_header = b.addWriteFiles().add("sdk/local/include/all.h",
+        \\#include <inkview.h>
+        \\#include <selection_list.h>
+    );
+    const inkview_translate = b.addTranslateC(.{
+        .root_source_file = inkview_header,
+        .target = target,
+        .optimize = optimize,
+    });
+    inkview_translate.addIncludePath(b.path("sdk/include"));
+    inkview_translate.addIncludePath(b.path("sdk/local/include"));
+
+    const inkview_module = inkview_translate.createModule();
+    inkview_module.addLibraryPath(b.path("sdk/local/lib_b288"));
+    inkview_module.linkSystemLibrary("inkview", .{});
+
     const exe = b.addExecutable(.{
         .name = "digibib.app",
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/main.zig"),
             // .root_source_file = b.path("src/main_enc.zig"),
-            .target = b.resolveTargetQuery(.{
-                .cpu_arch = .arm,
-                .cpu_model = .{ .explicit = &std.Target.arm.cpu.cortex_a7 },
-                .os_tag = .linux,
-                .abi = .gnueabi,
-                .glibc_version = .{ .major = 2, .minor = 34, .patch = 0 },
-            }),
-            .optimize = b.standardOptimizeOption(.{}),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "inkview", .module = inkview_module },
+            },
         }),
     });
-
-    exe.root_module.addIncludePath(b.path("sdk/include"));
-    exe.root_module.addIncludePath(b.path("sdk/include/freetype2"));
-    exe.root_module.addIncludePath(b.path("sdk/local/include"));
-    exe.root_module.addIncludePath(b.path("sdk/local/include/inkview"));
-    exe.root_module.addLibraryPath(b.path("sdk/local/lib_b288"));
-    exe.root_module.linkSystemLibrary("hwconfig", .{});
-    exe.root_module.linkSystemLibrary("inkview", .{});
-    exe.root_module.link_libc = true;
 
     const applications_dir: std.Build.InstallDir = .{ .custom = "applications" };
 

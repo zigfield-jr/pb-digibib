@@ -4,9 +4,9 @@ for (mostly german) [volumes](https://www.versand-as.de/Digibib-Gesamtverzeichni
 supporting
 
 - [x] text
-- [ ] images
+- [x] images (from images.lib)
 - [ ] links
-- [ ] toc
+- [x] toc (flat)
 
 ## Setup
 
