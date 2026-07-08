@@ -104,7 +104,10 @@ fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(
                     const tree_array = current_volume.tree_array;
 
                     for (tree_array, 0..) |entry, i| {
-                        if (current_pagenumber <= entry.textpagenumber) {
+                        if (current_pagenumber < entry.textpagenumber and i > 0) {
+                            _ = iv.SelectionList_SetSelectedItem(toc_list, @intCast(i - 1));
+                            break;
+                        } else if (current_pagenumber <= entry.textpagenumber) {
                             _ = iv.SelectionList_SetSelectedItem(toc_list, @intCast(i));
                             break;
                         }
