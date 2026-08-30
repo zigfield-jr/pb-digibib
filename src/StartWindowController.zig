@@ -82,5 +82,11 @@ pub fn searchForDigiBib(allocator: std.mem.Allocator, absolute_path: []const u8)
         }
     }
 
-    return try list.toOwnedSlice(allocator);
+    const array = try list.toOwnedSlice(allocator);
+    std.mem.sort(b.Band, array, {}, lessThan);
+    return array;
+}
+
+fn lessThan(_: void, lhs: b.Band, rhs: b.Band) bool {
+    return std.mem.order(u8, lhs.name, rhs.name) == .lt;
 }

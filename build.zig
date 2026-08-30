@@ -122,7 +122,7 @@ pub fn main(init: std.process.Init) !void {
 
     var tar_writer: std.tar.Writer = .{ .underlying_writer = gzip_writer };
 
-    var install_dir = try std.Io.Dir.openDirAbsolute(io, install_path, .{ .iterate = true });
+    var install_dir = try std.Io.Dir.openDir(std.Io.Dir.cwd(), io, install_path, .{ .iterate = true });
     defer install_dir.close(io);
 
     var install_walker = try install_dir.walk(arena);
