@@ -86,13 +86,13 @@ pub const DBPage = struct {
                         if (atFont == 1) {
                             codepoint = switch (data[i]) {
                                 // https://en.wikipedia.org/wiki/Wingdings
-                                0x26 => 0x25eb, // book
-                                0x33 => 0x25a4, // page
-                                0x41 => 0x2228, // victory
-                                0x46 => 0x21f0, // pointer right
-                                0xa4 => 0x2299, // image link
-                                0xb6 => 0x229b, // page link
-                                0xf0 => 0x21e8, // arrow right
+                                0x26 => 0x2610, // book => ballot box
+                                0x33 => 0x2610, // page => ballot box
+                                0x41 => 0x270c, // victory
+                                0x46 => 0x261e, // hollow index right
+                                0xa4 => 0x2609, // sun (image link)
+                                0xb6 => 0x2606, // hollow star (page link)
+                                0xf0 => 0x21e8, // hollow arrow right
                                 else => data[i],
                             };
                         } else if (atFont == 2) {

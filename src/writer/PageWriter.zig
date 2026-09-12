@@ -4,7 +4,7 @@ const iv = @import("inkview");
 const link_color = 0xff;
 
 const border_left_right = 40;
-const border_top = 40;
+const border_top = 30;
 const border_bottom = 100;
 
 var x: i32 = undefined;
@@ -28,7 +28,7 @@ pub fn write(str: []u8, spaces: bool, bold: bool, italic: bool, superscript: boo
     const font_size_script = font_size(if (superscript or subscript) 0.66 * font_size_relative else font_size_relative);
     const border_top_script = if (subscript) font_size(font_size_relative) - font_size_script else 0;
 
-    const font_name = if (bold and italic) "DejaVuSerif-BoldItalic" else if (bold) "DejaVuSerif-Bold" else if (italic) "DejaVuSerif-Italic" else "DejaVuSerif";
+    const font_name = if (bold and italic) "DejaVuSans-BoldOblique" else if (bold) "DejaVuSans-Bold" else if (italic) "DejaVuSans-Oblique" else "DejaVuSans";
 
     const font = iv.OpenFont(font_name, font_size_script, 1);
     const str_width = iv.GetMultilineStringWidth(c_str.ptr, iv.ScreenWidth(), font, 0); // causes bw
@@ -128,7 +128,7 @@ pub fn imageInline(font_size_relative: f32, rawImage: []const u8) void {
 }
 
 pub fn pager(current_page: u32, total_pages: u32) void {
-    const font = iv.OpenFont("DejaVuSerif", font_size(0.85), 1);
+    const font = iv.OpenFont("DejaVuSans", font_size(0.85), 1);
     const icon = iv.ibitmap{};
     var ipager = iv.ipager{
         .page_font = font,
@@ -159,7 +159,7 @@ pub fn pager(current_page: u32, total_pages: u32) void {
 //     const c_str = std.heap.c_allocator.dupeZ(u8, str) catch undefined;
 //     defer std.heap.c_allocator.free(c_str);
 //
-//     const font = c.OpenFont("DejaVuSerif", font_size(0.85), 1);
+//     const font = c.OpenFont("DejaVuSans", font_size(0.85), 1);
 //     c.SetFont(font, c.BLACK);
 //     _ = c.DrawString(@divTrunc(c.ScreenWidth(), 2) + 300, c.ScreenHeight() - border_bottom + @divTrunc(border_bottom - font_size(0.85), 2), c_str.ptr);
 //     c.CloseFont(font);
@@ -167,7 +167,7 @@ pub fn pager(current_page: u32, total_pages: u32) void {
 
 pub fn font_size(fontsize: f32) i32 {
     const textWidth: f32 = @floatFromInt(iv.ScreenWidth() - border_left_right * 2);
-    return @intFromFloat(fontsize * textWidth / 27.7);
+    return @intFromFloat(fontsize * textWidth / 27.5);
 }
 
 pub fn line_height(fontsize: f32) i32 {

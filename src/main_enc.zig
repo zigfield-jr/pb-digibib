@@ -37,7 +37,7 @@ fn table() void {
 }
 
 fn cell(row: i32, col: i32, c_str: [:0]u8, bold: bool) void {
-    const font = iv.OpenFont(if (bold) "DejaVuSerif-Bold" else "DejaVuSerif", writer.font_size(1.0), 1);
+    const font = iv.OpenFont(if (bold) "DejaVuSans-Bold" else "DejaVuSans", writer.font_size(1.0), 1);
     iv.SetFont(font, iv.BLACK);
 
     const width = @divTrunc(iv.ScreenWidth() - border * 2, 17);

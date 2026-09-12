@@ -184,7 +184,7 @@ fn DrawLibraryHeader() void {
     _ = iv.DrawRect(0, 0, iv.ScreenWidth(), 100, iv.WHITE);
 
     const font_size = writer.font_size(1.0);
-    const font = iv.OpenFont("DejaVuSerif", font_size, 1);
+    const font = iv.OpenFont("DejaVuSans", font_size, 1);
     iv.SetFont(font, iv.BLACK);
 
     const str = iv.GetLangText("@Library");
@@ -216,7 +216,7 @@ fn libraryDraw(_: ?*anyopaque, item_num: c_int, item_rect: iv.irect, _: c_int, i
     const caption_cstring = std.heap.c_allocator.dupeSentinel(u8, if (caption_loaded) band.caption else band.name, 0) catch undefined;
     defer std.heap.c_allocator.free(caption_cstring);
 
-    const font = iv.OpenFont("DejaVuSerif", writer.font_size(1.0), 1);
+    const font = iv.OpenFont("DejaVuSans", writer.font_size(1.0), 1);
     iv.SetFont(font, iv.BLACK);
     _ = iv.DrawTextRect(item_rect.x + 170, item_rect.y + 20, item_rect.w - 210, item_rect.h - 40 - 1, caption_cstring, iv.ALIGN_LEFT | iv.VALIGN_MIDDLE);
     iv.CloseFont(font);
@@ -292,7 +292,7 @@ fn tocDraw(_: ?*anyopaque, item_num: c_int, item_rect: iv.irect, is_selected: c_
     var page_buffer: [8]u8 = undefined;
     const page_cstring = std.fmt.bufPrintSentinel(&page_buffer, "{d}", .{entry.textpagenumber}, 0) catch undefined;
 
-    const font = iv.OpenFont("DejaVuSerif", writer.font_size(1.0), 1);
+    const font = iv.OpenFont("DejaVuSans", writer.font_size(1.0), 1);
     iv.SetFont(font, iv.BLACK);
     _ = iv.DrawTextRect(item_rect.x + 40, item_rect.y, @divTrunc((item_rect.w - 80) * 4, 5), item_rect.h, name_cstring, iv.ALIGN_LEFT | iv.VALIGN_MIDDLE | iv.DOTS);
     _ = iv.DrawTextRect(item_rect.x + 40 + @divTrunc((item_rect.w - 80) * 4, 5), item_rect.y, @divTrunc(item_rect.w - 80, 5), item_rect.h, page_cstring, iv.ALIGN_RIGHT | iv.VALIGN_MIDDLE);
