@@ -225,7 +225,7 @@ fn libraryDraw(_: ?*anyopaque, item_num: c_int, item_rect: iv.irect, _: c_int, i
 
     const font = iv.OpenFont("DejaVuSans", writer.font_size(1.0), 1);
     iv.SetFont(font, iv.BLACK);
-    _ = iv.DrawTextRect(item_rect.x + 2 * border + cover_width , item_rect.y + @divTrunc(border, 2), item_rect.w - 3 * border - cover_width, item_rect.h - border - 1, caption_cstring, iv.ALIGN_LEFT | iv.VALIGN_MIDDLE);
+    _ = iv.DrawTextRect(item_rect.x + border + cover_width + @divTrunc(border, 2), item_rect.y + @divTrunc(border, 2), item_rect.w - 2 * border - cover_width - @divTrunc(border, 2), item_rect.h - border - 1, caption_cstring, iv.ALIGN_LEFT | iv.VALIGN_MIDDLE);
     iv.CloseFont(font);
 
     // draw cover
