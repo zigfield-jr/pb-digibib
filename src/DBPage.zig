@@ -86,8 +86,8 @@ pub const DBPage = struct {
                         if (atFont == 1) {
                             codepoint = switch (data[i]) {
                                 // https://en.wikipedia.org/wiki/Wingdings
-                                0x26 => 0x2610, // book => ballot box
-                                0x33 => 0x2610, // page => ballot box
+                                0x26 => 0x2751, // book
+                                0x33 => 0x2610, // page
                                 0x41 => 0x270c, // victory
                                 0x46 => 0x261e, // hollow index right
                                 0xa4 => 0x2609, // sun (image link)

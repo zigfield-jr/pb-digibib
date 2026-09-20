@@ -5,6 +5,13 @@ const dbp = @import("DBPage.zig");
 const writer = @import("writer/PageWriter.zig");
 const iv = @import("inkview");
 
+const border = 32;
+
+const header_footer_height = 96;
+
+const cover_width = 110;
+const cover_height = 155;
+
 var library_list_callbacks = iv.SelectionListCallbacks{
     .Draw = libraryDraw,
     .SelectedItemChanged = librarySelectedItemChanged,
@@ -43,11 +50,11 @@ fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(
             };
 
             const library_rect = iv.irect{
-                .y = 101,
+                .y = header_footer_height,
                 .w = iv.ScreenWidth(),
-                .h = iv.ScreenHeight() - 101,
+                .h = iv.ScreenHeight() - header_footer_height,
             };
-            library_list = iv.SelectionList_Init(library_rect, @ptrCast(&library_list_callbacks), null, 196);
+            library_list = iv.SelectionList_Init(library_rect, @ptrCast(&library_list_callbacks), null, cover_height + border + 1);
             _ = iv.SelectionList_SetItemcount(library_list, @intCast(volumes.len));
             _ = iv.SelectionList_UseDraggableScroller(library_list, 1);
 
@@ -89,7 +96,7 @@ fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(
             }
 
             if (event_type == iv.EVT_POINTERDOWN) {
-                if (param_two > (iv.ScreenHeight() - 100)) {
+                if (param_two > (iv.ScreenHeight() - header_footer_height)) {
                     var buffer = std.mem.zeroes([8]u8);
                     _ = iv.OpenKeyboard("", &buffer, 6, iv.KBD_NUMERIC, @ptrCast(&iv_keyboardhandler)); // 7 digits
                 } else {
@@ -181,7 +188,7 @@ fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(
 }
 
 fn DrawLibraryHeader() void {
-    _ = iv.DrawRect(0, 0, iv.ScreenWidth(), 100, iv.WHITE);
+    _ = iv.DrawRect(0, 0, iv.ScreenWidth(), header_footer_height, iv.WHITE);
 
     const font_size = writer.font_size(1.0);
     const font = iv.OpenFont("DejaVuSans", font_size, 1);
@@ -189,12 +196,12 @@ fn DrawLibraryHeader() void {
 
     const str = iv.GetLangText("@Library");
     const str_width = iv.GetMultilineStringWidth(str, iv.ScreenWidth(), font, 0);
-    _ = iv.DrawString(@divTrunc(iv.ScreenWidth() - str_width, 2), @divTrunc(100 - font_size, 2), str);
+    _ = iv.DrawString(@divTrunc(iv.ScreenWidth() - str_width, 2), @divTrunc(header_footer_height - 1 - font_size, 2), str);
     iv.CloseFont(font);
 
-    _ = iv.DrawHorizontalSeparator(0, 100, iv.ScreenWidth(), iv.HORIZONTAL_SEPARATOR_SOLID);
+    _ = iv.DrawHorizontalSeparator(0, header_footer_height - 1, iv.ScreenWidth(), iv.HORIZONTAL_SEPARATOR_SOLID);
 
-    _ = iv.PartialUpdate(0, 0, iv.ScreenWidth(), 101);
+    _ = iv.PartialUpdate(0, 0, iv.ScreenWidth(), header_footer_height);
 }
 
 fn libraryDraw(_: ?*anyopaque, item_num: c_int, item_rect: iv.irect, _: c_int, is_touched: c_int) callconv(.c) void {
@@ -202,9 +209,9 @@ fn libraryDraw(_: ?*anyopaque, item_num: c_int, item_rect: iv.irect, _: c_int, i
 
     // draw item
 
-    _ = iv.DrawHorizontalSeparator(item_rect.x + 20, item_rect.y + item_rect.h - 1, item_rect.w - 40, iv.HORIZONTAL_SEPARATOR_SOLID);
+    _ = iv.DrawHorizontalSeparator(item_rect.x + @divTrunc(border, 2), item_rect.y + item_rect.h - 1, item_rect.w - border, iv.HORIZONTAL_SEPARATOR_SOLID);
     if (is_touched != 0) {
-        _ = iv.DrawRect(item_rect.x + 20, item_rect.y, item_rect.w - 40, item_rect.h - 1, iv.BLACK);
+        _ = iv.DrawRect(item_rect.x + @divTrunc(border, 2), item_rect.y, item_rect.w - border, item_rect.h - 1, iv.BLACK);
     }
 
     // draw caption
@@ -218,12 +225,12 @@ fn libraryDraw(_: ?*anyopaque, item_num: c_int, item_rect: iv.irect, _: c_int, i
 
     const font = iv.OpenFont("DejaVuSans", writer.font_size(1.0), 1);
     iv.SetFont(font, iv.BLACK);
-    _ = iv.DrawTextRect(item_rect.x + 170, item_rect.y + 20, item_rect.w - 210, item_rect.h - 40 - 1, caption_cstring, iv.ALIGN_LEFT | iv.VALIGN_MIDDLE);
+    _ = iv.DrawTextRect(item_rect.x + 2 * border + cover_width , item_rect.y + @divTrunc(border, 2), item_rect.w - 3 * border - cover_width, item_rect.h - border - 1, caption_cstring, iv.ALIGN_LEFT | iv.VALIGN_MIDDLE);
     iv.CloseFont(font);
 
     // draw cover
 
-    _ = iv.DrawRect(item_rect.x + 40, item_rect.y + 20, 110, 155, iv.BLACK);
+    _ = iv.DrawRect(item_rect.x + border, item_rect.y + @divTrunc(border, 2), cover_width, cover_height, iv.BLACK);
     const cover_filename = band.loadCoverImage(std.heap.c_allocator) catch {
         return;
     };
@@ -241,8 +248,8 @@ fn libraryDraw(_: ?*anyopaque, item_num: c_int, item_rect: iv.irect, _: c_int, i
     if (bitmap == null) {
         return;
     }
-    _ = iv.DrawBitmapRect(item_rect.x + 40, item_rect.y + 20, 110, 155, bitmap, iv.ALIGN_CENTER | iv.VALIGN_MIDDLE);
-    _ = iv.DrawRect(item_rect.x + 40, item_rect.y + 20, 110, 155, iv.BLACK);
+    _ = iv.DrawBitmapRect(item_rect.x + border, item_rect.y + @divTrunc(border, 2), cover_width, cover_height, bitmap, iv.ALIGN_CENTER | iv.VALIGN_MIDDLE);
+    _ = iv.DrawRect(item_rect.x + border, item_rect.y + @divTrunc(border, 2), cover_width, cover_height, iv.BLACK);
 }
 
 fn librarySelectedItemChanged(_: ?*anyopaque, _: c_int) callconv(.c) void {}
@@ -294,8 +301,8 @@ fn tocDraw(_: ?*anyopaque, item_num: c_int, item_rect: iv.irect, is_selected: c_
 
     const font = iv.OpenFont("DejaVuSans", writer.font_size(1.0), 1);
     iv.SetFont(font, iv.BLACK);
-    _ = iv.DrawTextRect(item_rect.x + 40, item_rect.y, @divTrunc((item_rect.w - 80) * 4, 5), item_rect.h, name_cstring, iv.ALIGN_LEFT | iv.VALIGN_MIDDLE | iv.DOTS);
-    _ = iv.DrawTextRect(item_rect.x + 40 + @divTrunc((item_rect.w - 80) * 4, 5), item_rect.y, @divTrunc(item_rect.w - 80, 5), item_rect.h, page_cstring, iv.ALIGN_RIGHT | iv.VALIGN_MIDDLE);
+    _ = iv.DrawTextRect(item_rect.x + border, item_rect.y, @divTrunc((item_rect.w - 2 * border) * 4, 5), item_rect.h, name_cstring, iv.ALIGN_LEFT | iv.VALIGN_MIDDLE | iv.DOTS);
+    _ = iv.DrawTextRect(item_rect.x + border + @divTrunc((item_rect.w - 2 * border) * 4, 5), item_rect.y, @divTrunc(item_rect.w - 2 * border, 5), item_rect.h, page_cstring, iv.ALIGN_RIGHT | iv.VALIGN_MIDDLE);
     iv.CloseFont(font);
 }
 

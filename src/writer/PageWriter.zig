@@ -3,9 +3,10 @@ const iv = @import("inkview");
 
 const link_color = 0xff;
 
-const border_left_right = 40;
-const border_top = 30;
-const border_bottom = 100;
+const border_left_right = 32;
+const border_top = 24;
+
+const pager_height = 96;
 
 var x: i32 = undefined;
 var y: i32 = undefined;
@@ -132,7 +133,7 @@ pub fn pager(current_page: u32, total_pages: u32) void {
     const icon = iv.ibitmap{};
     var ipager = iv.ipager{
         .page_font = font,
-        .height = border_bottom,
+        .height = pager_height,
         .indent_horizontal = 0,
         .left_width = 100,
         .page_width = 400,
@@ -145,9 +146,9 @@ pub fn pager(current_page: u32, total_pages: u32) void {
         .total_pages = @intCast(total_pages),
         .position = iv.irect{
             .x = @divTrunc(iv.ScreenWidth() - 600, 2),
-            .y = iv.ScreenHeight() - border_bottom,
+            .y = iv.ScreenHeight() - pager_height,
             .w = iv.ScreenWidth(),
-            .h = border_bottom,
+            .h = pager_height,
         },
         .orientation = 0,
     };
@@ -161,17 +162,17 @@ pub fn pager(current_page: u32, total_pages: u32) void {
 //
 //     const font = c.OpenFont("DejaVuSans", font_size(0.85), 1);
 //     c.SetFont(font, c.BLACK);
-//     _ = c.DrawString(@divTrunc(c.ScreenWidth(), 2) + 300, c.ScreenHeight() - border_bottom + @divTrunc(border_bottom - font_size(0.85), 2), c_str.ptr);
+//     _ = c.DrawString(@divTrunc(c.ScreenWidth(), 2) + 300, c.ScreenHeight() - pager_height + @divTrunc(pager_height - font_size(0.85), 2), c_str.ptr);
 //     c.CloseFont(font);
 // }
 
 pub fn font_size(fontsize: f32) i32 {
     const textWidth: f32 = @floatFromInt(iv.ScreenWidth() - border_left_right * 2);
-    return @intFromFloat(fontsize * textWidth / 27.5);
+    return @intFromFloat(fontsize * textWidth / 27.9);
 }
 
 pub fn line_height(fontsize: f32) i32 {
-    const textHeight: f32 = @floatFromInt(iv.ScreenHeight() - border_top - border_bottom);
+    const textHeight: f32 = @floatFromInt(iv.ScreenHeight() - border_top - pager_height);
     return @intFromFloat(fontsize * textHeight / 27);
 }
 
