@@ -110,7 +110,7 @@ pub fn image(width_relative: f32, rawImage: []const u8) void {
 pub fn imageInline(font_size_relative: f32, rawImage: []const u8) void {
     skip_next_cr = false;
 
-    const image_height = font_size(font_size_relative * 1.2);
+    const image_height = font_size(font_size_relative * 1.15);
 
     const path = cacheImage(std.heap.c_allocator, rawImage);
     defer std.heap.c_allocator.free(path);
