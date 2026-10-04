@@ -472,8 +472,8 @@ pub const DBPage = struct {
 
                         if (!write_image) {
                             var utf8_char: [4]u8 = undefined;
-                            const utf8_char_length = try std.unicode.utf8Encode(0xfffc, &utf8_char);
-                            writer.write(utf8_char[0..utf8_char_length], false, bold, italic or gesperrt, superscript, subscript, linkrangebegin, underline or align_right, fontsize, farbe);
+                            const utf8_char_length = try std.unicode.utf8Encode(0xfffd, &utf8_char);
+                            writer.write(utf8_char[0..utf8_char_length], false, false, false, false, false, false, false, fontsize, 0);
                         }
                     }
                 },

@@ -110,8 +110,7 @@ pub fn image(width_relative: f32, rawImage: []const u8) void {
 pub fn imageInline(font_size_relative: f32, rawImage: []const u8) void {
     skip_next_cr = false;
 
-    const image_height = font_size(font_size_relative);
-    const y_offset = y + @divTrunc(image_height, 10);
+    const image_height = font_size(font_size_relative * 1.2);
 
     const path = cacheImage(std.heap.c_allocator, rawImage);
     defer std.heap.c_allocator.free(path);
@@ -121,17 +120,16 @@ pub fn imageInline(font_size_relative: f32, rawImage: []const u8) void {
 
     const bitmap = iv.LoadImageToFormat(c_path, iv.kFmtRGB24);
     if (bitmap == null) {
-        _ = iv.DrawRect(x, y_offset, image_height, image_height, 0);
-
-        x += image_height;
-        line_height_max = @max(line_height(font_size_relative), line_height_max);
+        var utf8_char: [4]u8 = undefined;
+        const utf8_char_length = std.unicode.utf8Encode(0xfffd, &utf8_char) catch undefined;
+        write(utf8_char[0..utf8_char_length], false, false, false, false, false, false, false, font_size_relative, 0);
         return;
     }
 
     const image_width = @divTrunc(bitmap.*.width * image_height, bitmap.*.height);
-    _ = iv.StretchBitmap(x, y_offset, image_width, image_height, bitmap, 0);
+    _ = iv.StretchBitmap(x, y, image_width, image_height, bitmap, 0);
     if (debug) {
-        _ = iv.DrawRect(x, y_offset, image_width, image_height, 0xff);
+        _ = iv.DrawRect(x, y, image_width, font_size(font_size_relative), 0xffff);
     }
 
     x += image_width;
