@@ -107,12 +107,10 @@ pub fn image(width_relative: f32, rawImage: []const u8) void {
     y += image_height;
 }
 
-pub fn imageInline(font_size_relative: f32, rawImage: []const u8) void {
+pub fn imageInline(font_size_relative: f32, raw_image: []const u8) void {
     skip_next_cr = false;
 
-    const image_height = font_size(font_size_relative * 1.15);
-
-    const path = cacheImage(std.heap.c_allocator, rawImage);
+    const path = cacheImage(std.heap.c_allocator, raw_image);
     defer std.heap.c_allocator.free(path);
 
     const c_path = std.heap.c_allocator.dupeSentinel(u8, path, 0) catch undefined;
@@ -126,6 +124,7 @@ pub fn imageInline(font_size_relative: f32, rawImage: []const u8) void {
         return;
     }
 
+    const image_height = font_size(font_size_relative * 1.15);
     const image_width = @divTrunc(bitmap.*.width * image_height, bitmap.*.height);
     _ = iv.StretchBitmap(x, y, image_width, image_height, bitmap, 0);
     if (debug) {
@@ -181,7 +180,7 @@ pub fn font_size(fontsize: f32) i32 {
 
 pub fn line_height(fontsize: f32) i32 {
     const textHeight: f32 = @floatFromInt(iv.ScreenHeight() - border_top - pager_height);
-    return @intFromFloat(fontsize * textHeight / 27);
+    return @intFromFloat(fontsize * textHeight / 27.1);
 }
 
 /// Caller owns returned memory.

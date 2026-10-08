@@ -82,7 +82,7 @@ pub const DBPage = struct {
                     i += 1;
                     _len = (len & 0x7f); // _len = (len & ~0x80) wortlaenge
                     if (_len == 1 and atFont != 0) {
-                        var codepoint: u21 = undefined;
+                        var codepoint: u16 = undefined;
                         if (atFont == 1) {
                             codepoint = switch (data[i]) {
                                 // https://en.wikipedia.org/wiki/Wingdings
@@ -127,10 +127,7 @@ pub const DBPage = struct {
 
                             while (data[offset] < 0x20 and offset < i + _len - 1 or data[offset] >= 0x20 and offset < i + _len) {
                                 if (data[offset] < 0x20) {
-                                    const b1: u16 = data[offset];
-                                    const b2: u16 = data[offset + 1];
-                                    const c = (b2 * 256) + b1;
-                                    utf16_string[utf16_string_length] = vlado.toCodepoint(c);
+                                    utf16_string[utf16_string_length] = vlado.toCodepoint(@intCast(data[offset]), data[offset + 1]);
                                     utf16_string_length += 1;
 
                                     offset += 1;

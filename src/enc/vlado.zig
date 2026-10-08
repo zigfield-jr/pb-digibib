@@ -1,8 +1,8 @@
 const std = @import("std");
 
-pub fn toCodepoint(c: u16) u16 {
-    const b1: u16 = c & 0xff;
-    const b2: u16 = (c >> 8) & 0xff;
+pub fn toCodepoint(c1: u5, c2: u8) u16 {
+    const b1: u16 = c1;
+    const b2: u16 = c2;
 
     var unizeichen: u16 = undefined;
     unizeichen = b2 -% (b1 + 1);
@@ -20,9 +20,14 @@ pub fn toCodepoint(c: u16) u16 {
 }
 
 test toCodepoint {
-    for (0..256) |i| {
-        for (0..32) |j| {
-            _ = toCodepoint(@intCast(i << 8 | j));
+    for (0..32) |i| {
+        for (0..256) |j| {
+            _ = toCodepoint(@intCast(i), @intCast(j));
         }
     }
+
+    // 0x0000-0x06ff
+    // 0x1200-0x27ff
+    // 0xe000-0xe0ff
+    // 0xfeff-0xffff
 }

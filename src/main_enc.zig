@@ -1,10 +1,11 @@
 const std = @import("std");
+const vlado = @import("enc/vlado.zig");
 const writer = @import("writer/PageWriter.zig");
 const iv = @import("inkview");
 
-const border = 40;
+const border = 32;
 
-var page: u8 = 0;
+var page: u5 = 0;
 var pointerdown: i32 = undefined;
 
 fn table() void {
@@ -25,9 +26,7 @@ fn table() void {
                 cell(@intCast(i + 1), 0, c_str, true);
             }
 
-            var codepoint: u21 = @intCast(page);
-            codepoint *= 256;
-            codepoint += @intCast(i * 16 + j);
+            const codepoint: u16 = vlado.toCodepoint(page, @intCast(i * 16 + j));
             const utf8_char_length = std.unicode.utf8Encode(codepoint, &utf8_char) catch undefined;
             const c_str = std.heap.c_allocator.dupeSentinel(u8, utf8_char[0..utf8_char_length], 0) catch undefined;
             defer std.heap.c_allocator.free(c_str);
@@ -41,7 +40,7 @@ fn cell(row: i32, col: i32, c_str: [:0]u8, bold: bool) void {
     iv.SetFont(font, iv.BLACK);
 
     const width = @divTrunc(iv.ScreenWidth() - border * 2, 17);
-    const height = @divTrunc(iv.ScreenHeight() - border * 3, 17);
+    const height = @divTrunc(iv.ScreenHeight() - border * 4, 17);
 
     var rect = iv.irect{
         .x = col * width + border,
@@ -109,7 +108,7 @@ fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(
 
 fn update() void {
     iv.ClearScreen();
-    writer.pager(page, 255);
+    writer.pager(page, std.math.maxInt(@TypeOf(page)));
     table();
     iv.FullUpdate();
 }
@@ -119,7 +118,7 @@ fn iv_keyboardhandler(text: [*c]u8) callconv(.c) void {
         return;
     }
     const new_page = std.fmt.parseInt(i32, std.mem.span(text), 16) catch undefined;
-    if (new_page < 0 or new_page > 255) {
+    if (new_page < 0 or new_page > std.math.maxInt(@TypeOf(page))) {
         _ = iv.Message(1, "", "invalid pagenumber", 500);
         return;
     }
