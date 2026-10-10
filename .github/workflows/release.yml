@@ -5,9 +5,6 @@ on:
     branches:
       - main
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   release:
     runs-on: ubuntu-slim
@@ -15,24 +12,23 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: mlugg/setup-zig@v2
+      - uses: xyzzylabs/setup-zig@v1
+        id: setup
         with:
           version: master
 
       - run: zig build --summary all --release=small
 
-      - run: echo zig version "$(zig version)" > ${{ github.workspace }}-CHANGELOG.txt
-
       - run: zip -r ${{ github.event.repository.name }}.zip .
         working-directory: zig-out
 
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: |
             zig-out/${{ github.event.repository.name }}.zip
-          body_path: ${{ github.workspace }}-CHANGELOG.txt
+          body: zig version ${{ steps.setup.outputs.zig-version }}
           prerelease: true
           tag_name: latest
           name: Latest

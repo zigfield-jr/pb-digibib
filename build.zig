@@ -48,6 +48,8 @@ pub fn build(b: *std.Build) void {
         },
     });
 
+    install_artifact.step.dependOn(&b.addInstallFileWithDir(b.path("digibib_update.sh"), applications_dir, "digibib_update.app").step);
+
     const dest_ip = b.option([]const u8, "dest_ip", "device ip") orelse "";
     if (std.mem.eql(u8, "", dest_ip)) {
         b.getInstallStep().dependOn(&install_artifact.step);
