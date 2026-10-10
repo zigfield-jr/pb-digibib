@@ -33,3 +33,4 @@ jobs:
           tag_name: latest
           name: Latest
           token: ${{ secrets.GITHUB_TOKEN }}
+          target_commitish: ${{ github.sha }}

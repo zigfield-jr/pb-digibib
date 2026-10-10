@@ -16,7 +16,8 @@ B288 or B300 device via USB
 ```
 .
 ├── applications
-│   └── digibib.app
+    ├── digibib.app
+│   └── digibib_update.app
 └── volumes
     ├── DB001
     │   ├── data
