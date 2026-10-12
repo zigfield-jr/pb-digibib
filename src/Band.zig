@@ -10,22 +10,27 @@ pub const Band = struct {
 
     // StartWindowController
 
-    path: []u8 = undefined,
-    name: []u8 = undefined,
-    data: []u8 = undefined,
-    images: []u8 = undefined,
+    path: []u8,
+    name: []u8,
 
-    digibib_path: []u8 = undefined,
-    textDKI_path: []u8 = undefined,
-    treeDKI_path: []u8 = undefined,
-    treeDKA_path: []u8 = undefined,
-    imageLib_path: []u8 = undefined,
+    // data folder
+
+    data: []u8,
+    digibib_path: []u8,
+    textDKI_path: []u8,
+    treeDKI_path: []u8,
+    treeDKA_path: []u8,
+
+    // images folder
+
+    images: ?[]u8 = null,
+    imageLib_path: ?[]u8 = null,
 
     // digigbib.txt
 
     major: i32 = 0,
     minor: i32 = 0,
-    caption: []u8 = undefined,
+    caption: ?[]u8 = null,
 
     // book
 
@@ -34,22 +39,27 @@ pub const Band = struct {
     texttab: []u32 = undefined, // blockpointerarray[0]
 
     //    NSArray *directoryTree;
-    tree_array: []const e.Entry = undefined,
+    tree_array: []e.Entry = undefined,
     //    int linesInTree;
 
-    imageArray: []dbis.DBImageSet = undefined,
-    imageDict: std.StringHashMap(dbis.DBImageSet) = undefined,
+    image_array: []dbis.DBImageSet = undefined,
+    image_dict: std.StringHashMap(dbis.DBImageSet) = undefined,
 
-    pub fn deinit(self: *Band) void {
-        std.heap.c_allocator.free(self.caption);
+    pub fn deinitPartially(self: *Band) void {
         std.heap.c_allocator.free(self.texttab);
 
-        for (self.imageArray) |imageSet| {
+        for (self.tree_array) |entry| {
+            var entry2 = entry;
+            entry2.deinit();
+        }
+        std.heap.c_allocator.free(self.tree_array);
+
+        for (self.image_array) |imageSet| {
             var imageSet2 = imageSet;
             imageSet2.deinit();
         }
-
-        self.imageDict.deinit();
+        std.heap.c_allocator.free(self.image_array);
+        self.image_dict.deinit();
     }
 
     pub fn initWithPath(self: *Band) !void {
@@ -86,15 +96,15 @@ pub const Band = struct {
 
         try self.loadTreeTable();
 
-        self.imageDict = .init(std.heap.c_allocator);
-        if (self.imageLib_path.len != 0) {
-            self.imageArray = try dbil.loadImageTable(std.heap.c_allocator, self.path, self.name, self.images, self.imageLib_path);
-            for (self.imageArray) |imageSet| {
-                try self.imageDict.put(imageSet.image_filename, imageSet);
+        self.image_dict = .init(std.heap.c_allocator);
+        if (self.images) |images| if (self.imageLib_path) |imageLib_path| {
+            self.image_array = try dbil.loadImageTable(std.heap.c_allocator, self.path, self.name, images, imageLib_path);
+            for (self.image_array) |imageSet| {
+                try self.image_dict.put(imageSet.image_filename, imageSet);
             }
         } else {
-            self.imageArray = try std.heap.c_allocator.alloc(dbis.DBImageSet, 0);
-        }
+            self.image_array = try std.heap.c_allocator.alloc(dbis.DBImageSet, 0);
+        };
     }
 
     /// Caller owns returned memory.

@@ -15,27 +15,27 @@ fn table() void {
         for (0..16) |j| {
             if (i == 0 and j == 0) {
                 const c_str = std.fmt.bufPrintSentinel(&utf8_char, "", .{}, 0) catch undefined;
-                cell(0, 0, c_str, true);
+                cell(0, 0, c_str, true, true);
             }
             if (i == 0) {
                 const c_str = std.fmt.bufPrintSentinel(&utf8_char, "{X}", .{j}, 0) catch undefined;
-                cell(0, @intCast(j + 1), c_str, true);
+                cell(0, @intCast(j + 1), c_str, true, true);
             }
             if (j == 0) {
                 const c_str = std.fmt.bufPrintSentinel(&utf8_char, "{X}", .{i}, 0) catch undefined;
-                cell(@intCast(i + 1), 0, c_str, true);
+                cell(@intCast(i + 1), 0, c_str, true, true);
             }
 
             const codepoint: u16 = vlado.toCodepoint(page, @intCast(i * 16 + j));
             const utf8_char_length = std.unicode.utf8Encode(codepoint, &utf8_char) catch undefined;
             const c_str = std.heap.c_allocator.dupeSentinel(u8, utf8_char[0..utf8_char_length], 0) catch undefined;
             defer std.heap.c_allocator.free(c_str);
-            cell(@intCast(i + 1), @intCast(j + 1), c_str, false);
+            cell(@intCast(i + 1), @intCast(j + 1), c_str, false, codepoint >= 0x1200 and codepoint < 0x1e00);
         }
     }
 }
 
-fn cell(row: i32, col: i32, c_str: [:0]u8, bold: bool) void {
+fn cell(row: i32, col: i32, c_str: [:0]u8, bold: bool, gray: bool) void {
     const font = iv.OpenFont(if (bold) "DejaVuSans-Bold" else "DejaVuSans", writer.font_size(1.0), 1);
     iv.SetFont(font, iv.BLACK);
 
@@ -49,7 +49,7 @@ fn cell(row: i32, col: i32, c_str: [:0]u8, bold: bool) void {
         .h = height + 1,
     };
 
-    if (bold) {
+    if (gray) {
         iv.FillAreaRect(&rect, iv.LGRAY);
     }
     iv.DrawRect(rect.x, rect.y, rect.w, rect.h, iv.BLACK);
@@ -68,12 +68,12 @@ fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(
                 iv.IV_KEY_MENU => {
                     iv.CloseApp();
                 },
-                iv.IV_KEY_PREV => {
-                    page -%= 1;
-                    update();
-                },
                 iv.IV_KEY_NEXT => {
                     page +%= 1;
+                    update();
+                },
+                iv.IV_KEY_PREV => {
+                    page -%= 1;
                     update();
                 },
                 else => {},
@@ -113,17 +113,16 @@ fn update() void {
     iv.FullUpdate();
 }
 
-fn iv_keyboardhandler(text: [*c]u8) callconv(.c) void {
-    if (text == null) {
-        return;
+fn iv_keyboardhandler(text: ?[*:0]u8) callconv(.c) void {
+    if (text) |t| {
+        const new_page = std.fmt.parseInt(i32, std.mem.span(t), 16) catch undefined;
+        if (new_page < 0 or new_page > std.math.maxInt(@TypeOf(page))) {
+            _ = iv.Message(1, "", "invalid pagenumber", 500);
+            return;
+        }
+        page = @intCast(new_page);
+        update();
     }
-    const new_page = std.fmt.parseInt(i32, std.mem.span(text), 16) catch undefined;
-    if (new_page < 0 or new_page > std.math.maxInt(@TypeOf(page))) {
-        _ = iv.Message(1, "", "invalid pagenumber", 500);
-        return;
-    }
-    page = @intCast(new_page);
-    update();
 }
 
 pub fn main() !void {

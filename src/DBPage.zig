@@ -6,12 +6,12 @@ const writer = @import("writer/PageWriter.zig");
 // const writer = @import("writer/StubWriter.zig");
 
 pub const DBPage = struct {
-    textpagenumber: u32 = undefined,
-    lastpagenumber: u32 = undefined,
-    atom_count: u16 = undefined,
-    word_count: u16 = undefined,
-    hexaddress: u64 = undefined,
-    page_block: []u8 = undefined,
+    textpagenumber: u32,
+    lastpagenumber: u32,
+    atom_count: u16,
+    word_count: u16,
+    hexaddress: u64,
+    page_block: []u8,
 
     pub fn deinit(self: *DBPage) void {
         std.heap.c_allocator.free(self.page_block);

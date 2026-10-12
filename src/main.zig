@@ -150,7 +150,7 @@ fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(
                     _ = iv.SelectionList_SetVisible(toc_list, 0);
                     _ = iv.SelectionList_Update(toc_list);
 
-                    // FIXME current_volume.deinit();
+                    current_volume.deinitPartially();
 
                     iv.ClearScreen();
 
@@ -160,21 +160,21 @@ fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(
                     _ = iv.SelectionList_SetVisible(library_list, 1);
                     _ = iv.SelectionList_Update(library_list);
                 },
-                iv.IV_KEY_PREV => {
-                    if (library_list_visible) {
-                        return 0;
-                    }
-                    if (current_pagenumber > 1) {
-                        current_pagenumber -= 1;
-                        displayPage();
-                    }
-                },
                 iv.IV_KEY_NEXT => {
                     if (library_list_visible) {
                         return 0;
                     }
                     if (current_pagenumber < current_volume.lastpagenumber) {
                         current_pagenumber += 1;
+                        displayPage();
+                    }
+                },
+                iv.IV_KEY_PREV => {
+                    if (library_list_visible) {
+                        return 0;
+                    }
+                    if (current_pagenumber > 1) {
+                        current_pagenumber -= 1;
                         displayPage();
                     }
                 },
@@ -216,11 +216,8 @@ fn libraryDraw(_: ?*anyopaque, item_num: c_int, item_rect: iv.irect, _: c_int, i
 
     // draw caption
 
-    var caption_loaded: bool = true;
-    _ = band.loadDigibibTable() catch {
-        caption_loaded = false;
-    };
-    const caption_cstring = std.heap.c_allocator.dupeSentinel(u8, if (caption_loaded) band.caption else band.name, 0) catch undefined;
+    _ = band.loadDigibibTable() catch undefined;
+    const caption_cstring = std.heap.c_allocator.dupeSentinel(u8, if (band.caption) |caption| caption else band.name, 0) catch undefined;
     defer std.heap.c_allocator.free(caption_cstring);
 
     const font = iv.OpenFont("DejaVuSans", writer.font_size(1.0), 1);
@@ -327,20 +324,19 @@ fn tocItemLongClicked(_: ?*anyopaque, _: c_int, _: c_int, _: c_int) callconv(.c)
 
 fn tocScrollPositionChanged(_: ?*anyopaque, _: c_int, _: c_int) callconv(.c) void {}
 
-fn iv_keyboardhandler(text: [*c]u8) callconv(.c) void {
-    if (text == null) {
-        return;
+fn iv_keyboardhandler(text: ?[*:0]u8) callconv(.c) void {
+    if (text) |t| {
+        const new_pagenumber = std.fmt.parseInt(u32, std.mem.span(t), 10) catch {
+            _ = iv.Message(1, "", "error parsing pagenumber", 500);
+            return;
+        };
+        if (new_pagenumber < 1 or new_pagenumber > current_volume.lastpagenumber) {
+            _ = iv.Message(1, "", "invalid pagenumber", 500);
+            return;
+        }
+        current_pagenumber = new_pagenumber;
+        displayPage();
     }
-    const new_pagenumber = std.fmt.parseInt(u32, std.mem.span(text), 10) catch {
-        _ = iv.Message(1, "", "error parsing pagenumber", 500);
-        return;
-    };
-    if (new_pagenumber < 1 or new_pagenumber > current_volume.lastpagenumber) {
-        _ = iv.Message(1, "", "invalid pagenumber", 500);
-        return;
-    }
-    current_pagenumber = new_pagenumber;
-    displayPage();
 }
 
 pub fn displayPage() void {
@@ -351,7 +347,7 @@ pub fn displayPage() void {
     defer page.deinit();
 
     iv.ClearScreen();
-    page.displayPageInView(current_volume.imageDict) catch {
+    page.displayPageInView(current_volume.image_dict) catch {
         _ = iv.Message(1, "", "error rendering previous page", 500);
         return;
     };

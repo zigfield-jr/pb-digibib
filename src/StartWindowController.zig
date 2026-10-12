@@ -12,74 +12,78 @@ pub fn searchForDigiBib(allocator: std.mem.Allocator, absolute_path: []const u8)
     var mountpoints = try std.Io.Dir.openDirAbsolute(io, absolute_path, .{ .iterate = true });
     defer mountpoints.close(io);
 
-    var enu = try mountpoints.walk(std.heap.c_allocator);
-    defer enu.deinit();
+    var volume_iterator = try mountpoints.walkSelectively(std.heap.c_allocator);
+    defer volume_iterator.deinit();
 
-    while (try enu.next(io)) |object| {
-        switch (object.kind) {
-            .directory => {
-                if (object.depth() == 1) {
-                    const band: b.Band = .{
-                        .path = try std.heap.c_allocator.dupe(u8, absolute_path),
-                        .name = try std.heap.c_allocator.dupe(u8, object.basename),
-
-                        .images = try std.heap.c_allocator.alloc(u8, 0),
-                        .imageLib_path = try std.heap.c_allocator.alloc(u8, 0),
-                    };
-                    try list.append(std.heap.c_allocator, band);
-                } else if (object.depth() == 2 and std.ascii.eqlIgnoreCase(object.basename, "data")) {
-                    if (list.pop()) |band| {
-                        var band2 = band;
-                        band2.data = try std.heap.c_allocator.dupe(u8, object.basename);
-                        try list.append(std.heap.c_allocator, band2);
-                    }
-                } else if (object.depth() == 2 and std.ascii.eqlIgnoreCase(object.basename, "images")) {
-                    if (list.pop()) |band| {
-                        var band2 = band;
-                        band2.images = try std.heap.c_allocator.dupe(u8, object.basename);
-                        try list.append(std.heap.c_allocator, band2);
-                    }
-                } else {
-                    enu.leave(io);
-                }
-            },
-            .file => {
-                if (object.depth() == 3) {
-                    if (std.ascii.eqlIgnoreCase(object.basename, "digibib.txt")) {
-                        if (list.pop()) |band| {
-                            var band2 = band;
-                            band2.digibib_path = try std.heap.c_allocator.dupe(u8, object.basename);
-                            try list.append(std.heap.c_allocator, band2);
-                        }
-                    } else if (std.ascii.eqlIgnoreCase(object.basename, "text.dki")) {
-                        if (list.pop()) |band| {
-                            var band2 = band;
-                            band2.textDKI_path = try std.heap.c_allocator.dupe(u8, object.basename);
-                            try list.append(std.heap.c_allocator, band2);
-                        }
-                    } else if (std.ascii.eqlIgnoreCase(object.basename, "tree.dki")) {
-                        if (list.pop()) |band| {
-                            var band2 = band;
-                            band2.treeDKI_path = try std.heap.c_allocator.dupe(u8, object.basename);
-                            try list.append(std.heap.c_allocator, band2);
-                        }
-                    } else if (std.ascii.eqlIgnoreCase(object.basename, "tree.dka")) {
-                        if (list.pop()) |band| {
-                            var band2 = band;
-                            band2.treeDKA_path = try std.heap.c_allocator.dupe(u8, object.basename);
-                            try list.append(std.heap.c_allocator, band2);
-                        }
-                    } else if (std.ascii.eqlIgnoreCase(object.basename, "images.lib")) {
-                        if (list.pop()) |band| {
-                            var band2 = band;
-                            band2.imageLib_path = try std.heap.c_allocator.dupe(u8, object.basename);
-                            try list.append(std.heap.c_allocator, band2);
-                        }
-                    }
-                }
-            },
-            else => {},
+    while (try volume_iterator.next(io)) |volume_entry| {
+        if (volume_entry.kind != .directory) {
+            continue;
         }
+
+        var volume_dir = try volume_entry.dir.openDir(io, volume_entry.basename, .{ .iterate = true });
+
+        var volume_walker = try volume_dir.walk(std.heap.c_allocator);
+        defer volume_walker.deinit();
+
+        var data: ?[]u8 = null;
+        var digibib_path: ?[]u8 = null;
+        var textDKI_path: ?[]u8 = null;
+        var treeDKI_path: ?[]u8 = null;
+        var treeDKA_path: ?[]u8 = null;
+
+        var images: ?[]u8 = null;
+        var imageLib_path: ?[]u8 = null;
+
+        while (try volume_walker.next(io)) |entry| {
+            switch (entry.kind) {
+                .directory => {
+                    if (entry.depth() > 1) {
+                        volume_walker.leave(io);
+                        continue;
+                    }
+
+                    if (std.ascii.eqlIgnoreCase(entry.basename, "data")) {
+                        data = try std.heap.c_allocator.dupe(u8, entry.basename);
+                    } else if (std.ascii.eqlIgnoreCase(entry.basename, "images")) {
+                        images = try std.heap.c_allocator.dupe(u8, entry.basename);
+                    }
+                },
+                .file => {
+                    if (entry.depth() != 2) {
+                        continue;
+                    }
+
+                    if (std.ascii.eqlIgnoreCase(entry.basename, "digibib.txt")) {
+                        digibib_path = try std.heap.c_allocator.dupe(u8, entry.basename);
+                    } else if (std.ascii.eqlIgnoreCase(entry.basename, "text.dki")) {
+                        textDKI_path = try std.heap.c_allocator.dupe(u8, entry.basename);
+                    } else if (std.ascii.eqlIgnoreCase(entry.basename, "tree.dki")) {
+                        treeDKI_path = try std.heap.c_allocator.dupe(u8, entry.basename);
+                    } else if (std.ascii.eqlIgnoreCase(entry.basename, "tree.dka")) {
+                        treeDKA_path = try std.heap.c_allocator.dupe(u8, entry.basename);
+                    } else if (std.ascii.eqlIgnoreCase(entry.basename, "images.lib")) {
+                        imageLib_path = try std.heap.c_allocator.dupe(u8, entry.basename);
+                    }
+                },
+                else => {},
+            }
+        }
+
+        if (data) |data2| if (digibib_path) |digibib_path2| if (textDKI_path) |textDKI_path2| if (treeDKI_path) |treeDKI_path2| if (treeDKA_path) |treeDKA_path2| {
+            try list.append(std.heap.c_allocator, .{
+                .path = try std.heap.c_allocator.dupe(u8, absolute_path),
+                .name = try std.heap.c_allocator.dupe(u8, volume_entry.basename),
+
+                .data = data2,
+                .digibib_path = digibib_path2,
+                .textDKI_path = textDKI_path2,
+                .treeDKI_path = treeDKI_path2,
+                .treeDKA_path = treeDKA_path2,
+
+                .images = images,
+                .imageLib_path = imageLib_path,
+            });
+        };
     }
 
     const array = try list.toOwnedSlice(allocator);
