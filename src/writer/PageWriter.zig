@@ -34,6 +34,8 @@ pub fn write(str: []u8, spaces: bool, bold: bool, italic: bool, superscript: boo
     const font_name = if (bold and italic) "DejaVuSans-BoldOblique" else if (bold) "DejaVuSans-Bold" else if (italic) "DejaVuSans-Oblique" else "DejaVuSans";
 
     const font = iv.OpenFont(font_name, font_size_script, 1);
+    defer iv.CloseFont(font);
+
     const str_width = iv.GetMultilineStringWidth(c_str.ptr, iv.ScreenWidth(), font, 0); // causes bw
     const color = if (link) link_color else palette_color;
     iv.SetFont(font, color);
@@ -46,7 +48,6 @@ pub fn write(str: []u8, spaces: bool, bold: bool, italic: bool, superscript: boo
         _ = iv.FillArea(x, y + font_size(font_size_relative), str_width, font_size(font_size_relative * 0.05), color);
     }
     _ = iv.DrawString(x, y + border_top_script, c_str.ptr);
-    iv.CloseFont(font);
 
     x += str_width;
     if (!spaces) {
@@ -93,6 +94,8 @@ pub fn image(width_relative: f32, rawImage: []const u8) void {
     defer std.heap.c_allocator.free(c_path);
 
     const bitmap = iv.LoadImageToFormat(c_path, iv.kFmtRGB24);
+    defer std.c.free(bitmap);
+
     if (bitmap == null) {
         const rect_height = line_height(1.0);
         _ = iv.DrawRect(border_left_right, y, image_width, rect_height, 0);
@@ -117,6 +120,8 @@ pub fn imageInline(font_size_relative: f32, raw_image: []const u8) void {
     defer std.heap.c_allocator.free(c_path);
 
     const bitmap = iv.LoadImageToFormat(c_path, iv.kFmtRGB24);
+    defer std.c.free(bitmap);
+
     if (bitmap == null) {
         var utf8_char: [4]u8 = undefined;
         const utf8_char_length = std.unicode.utf8Encode(0xfffd, &utf8_char) catch undefined;
@@ -137,6 +142,8 @@ pub fn imageInline(font_size_relative: f32, raw_image: []const u8) void {
 
 pub fn pager(current_page: u32, total_pages: u32) void {
     const font = iv.OpenFont("DejaVuSans", font_size(0.85), 1);
+    defer iv.CloseFont(font);
+
     const icon = iv.ibitmap{};
     var ipager = iv.ipager{
         .page_font = font,
@@ -160,7 +167,6 @@ pub fn pager(current_page: u32, total_pages: u32) void {
         .orientation = 0,
     };
     _ = iv.DrawPager(&ipager);
-    iv.CloseFont(font);
 }
 
 // pub fn siglum(str: []u8) void {

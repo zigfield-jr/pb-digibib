@@ -37,6 +37,8 @@ fn table() void {
 
 fn cell(row: i32, col: i32, c_str: [:0]u8, bold: bool, gray: bool) void {
     const font = iv.OpenFont(if (bold) "DejaVuSans-Bold" else "DejaVuSans", writer.font_size(1.0), 1);
+    defer iv.CloseFont(font);
+
     iv.SetFont(font, iv.BLACK);
 
     const width = @divTrunc(iv.ScreenWidth() - border * 2, 17);
@@ -54,8 +56,6 @@ fn cell(row: i32, col: i32, c_str: [:0]u8, bold: bool, gray: bool) void {
     }
     iv.DrawRect(rect.x, rect.y, rect.w, rect.h, iv.BLACK);
     _ = iv.DrawTextRect(rect.x, rect.y, rect.w, rect.h, c_str.ptr, iv.ALIGN_CENTER | iv.VALIGN_MIDDLE);
-
-    iv.CloseFont(font);
 }
 
 fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(.c) c_int {

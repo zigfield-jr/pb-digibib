@@ -42,8 +42,9 @@ var current_pagenumber_pointerdown: i32 = undefined;
 fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(.c) c_int {
     switch (event_type) {
         iv.EVT_INIT => {
-            var volumes_buffer: [32]u8 = undefined;
-            const volumes_path = std.fmt.bufPrint(&volumes_buffer, "{s}/volumes", .{iv.FLASHDIR}) catch undefined;
+            const volumes_path = std.fs.path.join(std.heap.c_allocator, &[_][]const u8{ iv.FLASHDIR, "volumes" }) catch undefined;
+            defer std.heap.c_allocator.free(volumes_path);
+
             volumes = swController.searchForDigiBib(std.heap.c_allocator, volumes_path) catch {
                 _ = iv.Message(1, "", "error loading library", 500);
                 return 0;
@@ -192,12 +193,13 @@ fn DrawLibraryHeader() void {
 
     const font_size = writer.font_size(1.0);
     const font = iv.OpenFont("DejaVuSans", font_size, 1);
+    defer iv.CloseFont(font);
+
     iv.SetFont(font, iv.BLACK);
 
     const str = iv.GetLangText("@Library");
     const str_width = iv.GetMultilineStringWidth(str, iv.ScreenWidth(), font, 0);
     _ = iv.DrawString(@divTrunc(iv.ScreenWidth() - str_width, 2), @divTrunc(header_footer_height - 1 - font_size, 2), str);
-    iv.CloseFont(font);
 
     _ = iv.DrawHorizontalSeparator(0, header_footer_height - 1, iv.ScreenWidth(), iv.HORIZONTAL_SEPARATOR_SOLID);
 
@@ -221,9 +223,10 @@ fn libraryDraw(_: ?*anyopaque, item_num: c_int, item_rect: iv.irect, _: c_int, i
     defer std.heap.c_allocator.free(caption_cstring);
 
     const font = iv.OpenFont("DejaVuSans", writer.font_size(1.0), 1);
+    defer iv.CloseFont(font);
+
     iv.SetFont(font, iv.BLACK);
     _ = iv.DrawTextRect(item_rect.x + border + cover_width + @divTrunc(border, 2), item_rect.y + @divTrunc(border, 2), item_rect.w - 2 * border - cover_width - @divTrunc(border, 2), item_rect.h - border - 1, caption_cstring, iv.ALIGN_LEFT | iv.VALIGN_MIDDLE);
-    iv.CloseFont(font);
 
     // draw cover
 
@@ -242,9 +245,12 @@ fn libraryDraw(_: ?*anyopaque, item_num: c_int, item_rect: iv.irect, _: c_int, i
     defer std.heap.c_allocator.free(cover_path_cstring);
 
     const bitmap = iv.LoadBitmap(cover_path_cstring);
+    defer std.c.free(bitmap);
+
     if (bitmap == null) {
         return;
     }
+
     _ = iv.DrawBitmapRect(item_rect.x + border, item_rect.y + @divTrunc(border, 2), cover_width, cover_height, bitmap, iv.ALIGN_CENTER | iv.VALIGN_MIDDLE);
     _ = iv.DrawRect(item_rect.x + border, item_rect.y + @divTrunc(border, 2), cover_width, cover_height, iv.BLACK);
 }
@@ -297,10 +303,11 @@ fn tocDraw(_: ?*anyopaque, item_num: c_int, item_rect: iv.irect, is_selected: c_
     const page_cstring = std.fmt.bufPrintSentinel(&page_buffer, "{d}", .{entry.textpagenumber}, 0) catch undefined;
 
     const font = iv.OpenFont("DejaVuSans", writer.font_size(1.0), 1);
+    defer iv.CloseFont(font);
+
     iv.SetFont(font, iv.BLACK);
     _ = iv.DrawTextRect(item_rect.x + border, item_rect.y, @divTrunc((item_rect.w - 2 * border) * 4, 5), item_rect.h, name_cstring, iv.ALIGN_LEFT | iv.VALIGN_MIDDLE | iv.DOTS);
     _ = iv.DrawTextRect(item_rect.x + border + @divTrunc((item_rect.w - 2 * border) * 4, 5), item_rect.y, @divTrunc(item_rect.w - 2 * border, 5), item_rect.h, page_cstring, iv.ALIGN_RIGHT | iv.VALIGN_MIDDLE);
-    iv.CloseFont(font);
 }
 
 fn tocSelectedItemChanged(_: ?*anyopaque, _: c_int) callconv(.c) void {}
