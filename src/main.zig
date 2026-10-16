@@ -39,6 +39,9 @@ var current_volume: b.Band = undefined;
 var current_pagenumber: u32 = undefined;
 var current_pagenumber_pointerdown: i32 = undefined;
 
+var ce: []iv.iconfigedit = undefined;
+var cfg: ?*iv.iconfig = null;
+
 fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(.c) c_int {
     switch (event_type) {
         iv.EVT_INIT => {
@@ -49,6 +52,27 @@ fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(
                 _ = iv.Message(1, "", "error loading library", 500);
                 return 0;
             };
+
+            var ce_list: std.ArrayList(iv.iconfigedit) = .empty;
+
+            for (volumes) |v| {
+                ce_list.append(std.heap.page_allocator, .{ // FIXME use c_allocator
+                    .type = iv.CFG_HIDDEN,
+                    .text = std.heap.c_allocator.dupeSentinel(u8, v.name, 0) catch undefined,
+                    .name = std.heap.c_allocator.dupeSentinel(u8, v.name, 0) catch undefined,
+                    .deflt = std.heap.c_allocator.dupeSentinel(u8, "1", 0) catch undefined,
+                }) catch undefined;
+            }
+
+            ce = ce_list.toOwnedSlice(std.heap.page_allocator) catch undefined; // FIXME use c_allocator
+
+            const cfg_path = std.fs.path.join(std.heap.c_allocator, &[_][]const u8{ iv.CONFIGPATH, "digibib.cfg" }) catch undefined;
+            defer std.heap.c_allocator.free(cfg_path);
+
+            const cfg_path_cstring = std.heap.c_allocator.dupeSentinel(u8, cfg_path[0..], 0) catch undefined;
+            defer std.heap.c_allocator.free(cfg_path_cstring);
+
+            cfg = iv.OpenConfig(cfg_path_cstring, ce.ptr);
 
             const library_rect = iv.irect{
                 .y = header_footer_height,
@@ -143,6 +167,7 @@ fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(
                     if (library_list_visible) {
                         iv.SelectionList_Destroy(library_list);
                         iv.SelectionList_Destroy(toc_list);
+                        iv.CloseConfig(cfg);
                         iv.CloseApp();
                         return 0;
                     }
@@ -150,6 +175,11 @@ fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(
                     toc_list_visible = false;
                     _ = iv.SelectionList_SetVisible(toc_list, 0);
                     _ = iv.SelectionList_Update(toc_list);
+
+                    const name_cstring = std.heap.c_allocator.dupeSentinel(u8, current_volume.name, 0) catch undefined;
+                    defer std.heap.c_allocator.free(name_cstring);
+                    iv.WriteInt(cfg, name_cstring, @intCast(current_pagenumber));
+                    _ = iv.SaveConfig(cfg);
 
                     current_volume.deinitPartially();
 
@@ -277,9 +307,16 @@ fn libraryItemClicked(_: ?*anyopaque, item_num: c_int, _: c_int, _: c_int) callc
 
     _ = iv.SelectionList_SetItemcount(toc_list, @intCast(current_volume.tree_array.len));
 
-    // load first page
+    // load former page
 
-    current_pagenumber = 1;
+    const name_cstring = std.heap.c_allocator.dupeSentinel(u8, current_volume.name, 0) catch undefined;
+    defer std.heap.c_allocator.free(name_cstring);
+    current_pagenumber = @intCast(iv.ReadInt(cfg, name_cstring, 1));
+    if (current_pagenumber < 1 or current_pagenumber > current_volume.lastpagenumber) {
+        current_pagenumber = 1;
+        iv.WriteInt(cfg, name_cstring, @intCast(current_pagenumber));
+        _ = iv.SaveConfig(cfg);
+    }
     displayPage();
 }
 
