@@ -7,7 +7,7 @@ const iv = @import("inkview");
 
 const border = 32;
 
-const header_footer_height = 96;
+var title_height: c_int = 0;
 
 const cover_width = 110;
 const cover_height = 155;
@@ -41,10 +41,16 @@ var current_pagenumber_pointerdown: i32 = undefined;
 
 var ce: []iv.iconfigedit = undefined;
 var cfg: ?*iv.iconfig = null;
+var config_editor_visible = false;
 
 fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(.c) c_int {
     switch (event_type) {
         iv.EVT_INIT => {
+            const properties = iv.LoadApplicationCaptionProperties();
+            if (properties != null and properties.*.is_active > 0) {
+                title_height = @intCast(properties.*.title_height);
+            }
+
             const volumes_path = std.fs.path.join(std.heap.c_allocator, &[_][]const u8{ iv.FLASHDIR, "volumes" }) catch undefined;
             defer std.heap.c_allocator.free(volumes_path);
 
@@ -54,6 +60,7 @@ fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(
             };
 
             var ce_list: std.ArrayList(iv.iconfigedit) = .empty;
+            defer ce_list.deinit(std.heap.page_allocator); // FIXME use c_allocator
 
             for (volumes) |v| {
                 ce_list.append(std.heap.page_allocator, .{ // FIXME use c_allocator
@@ -75,9 +82,9 @@ fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(
             cfg = iv.OpenConfig(cfg_path_cstring, ce.ptr);
 
             const library_rect = iv.irect{
-                .y = header_footer_height,
+                .y = title_height,
                 .w = iv.ScreenWidth(),
-                .h = iv.ScreenHeight() - header_footer_height,
+                .h = iv.ScreenHeight() - title_height,
             };
             library_list = iv.SelectionList_Init(library_rect, @ptrCast(&library_list_callbacks), null, cover_height + border + 1);
             _ = iv.SelectionList_SetItemcount(library_list, @intCast(volumes.len));
@@ -93,15 +100,24 @@ fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(
             _ = iv.SelectionList_SetScrollerOffset(toc_list, 1, 0);
             _ = iv.SelectionList_SetVisible(toc_list, 0);
         },
-        iv.EVT_SHOW => {
+        iv.EVT_SHOW, iv.EVT_CONFIGCHANGED => {
             if (library_list_visible) {
                 DrawLibraryHeader();
                 _ = iv.SelectionList_Draw(library_list);
                 _ = iv.SelectionList_Update(library_list);
             }
         },
+        iv.EVT_HIDE => {
+            saveConfig();
+        },
         iv.EVT_POINTERUP, iv.EVT_POINTERDOWN, iv.EVT_POINTERMOVE, iv.EVT_POINTERLONG, iv.EVT_POINTERHOLD, iv.EVT_POINTERDRAG, iv.EVT_POINTERCANCEL, iv.EVT_POINTERCHANGED => {
             if (library_list_visible) {
+                if (!config_editor_visible and param_two < title_height) {
+                    iv.OpenConfigEditor(iv.GetLangText("@Configuration"), cfg, ce.ptr, @ptrCast(&configHandler), &itemChangeHandler);
+                    config_editor_visible = true;
+                    return 0;
+                }
+
                 _ = iv.SelectionList_HandleEvent(library_list, event_type, param_one, param_two);
                 return 0;
             }
@@ -121,9 +137,9 @@ fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(
             }
 
             if (event_type == iv.EVT_POINTERDOWN) {
-                if (param_two > (iv.ScreenHeight() - header_footer_height)) {
+                if (param_two > (iv.ScreenHeight() - title_height)) {
                     var buffer = std.mem.zeroes([8]u8);
-                    _ = iv.OpenKeyboard("", &buffer, 6, iv.KBD_NUMERIC, @ptrCast(&iv_keyboardhandler)); // 7 digits
+                    _ = iv.OpenKeyboard("", &buffer, 6, iv.KBD_NUMERIC, @ptrCast(&keyboardHandler)); // 7 digits
                 } else {
                     current_pagenumber_pointerdown = param_one;
                 }
@@ -176,14 +192,9 @@ fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(
                     _ = iv.SelectionList_SetVisible(toc_list, 0);
                     _ = iv.SelectionList_Update(toc_list);
 
-                    const name_cstring = std.heap.c_allocator.dupeSentinel(u8, current_volume.name, 0) catch undefined;
-                    defer std.heap.c_allocator.free(name_cstring);
-                    iv.WriteInt(cfg, name_cstring, @intCast(current_pagenumber));
-                    _ = iv.SaveConfig(cfg);
+                    saveConfig();
 
                     current_volume.deinitPartially();
-
-                    iv.ClearScreen();
 
                     DrawLibraryHeader();
 
@@ -219,21 +230,26 @@ fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(
 }
 
 fn DrawLibraryHeader() void {
-    _ = iv.DrawRect(0, 0, iv.ScreenWidth(), header_footer_height, iv.WHITE);
+    const properties = iv.LoadApplicationCaptionProperties();
+    if (properties == null or properties.*.is_active <= 0) {
+        return;
+    }
+    iv.SetFont(properties.*.font, iv.BLACK);
+    const is_uppercase = properties.*.is_uppercase > 0;
 
-    const font_size = writer.font_size(1.0);
-    const font = iv.OpenFont("DejaVuSans", font_size, 1);
-    defer iv.CloseFont(font);
+    const title_cstring = std.heap.c_allocator.dupeSentinel(u8, std.mem.span(iv.GetLangText("@Library")), 0) catch undefined;
+    defer std.heap.c_allocator.free(title_cstring);
 
-    iv.SetFont(font, iv.BLACK);
+    if (is_uppercase) {
+        for (title_cstring, 0..) |c, i| {
+            title_cstring[i] = std.ascii.toUpper(c);
+        }
+    }
 
-    const str = iv.GetLangText("@Library");
-    const str_width = iv.GetMultilineStringWidth(str, iv.ScreenWidth(), font, 0);
-    _ = iv.DrawString(@divTrunc(iv.ScreenWidth() - str_width, 2), @divTrunc(header_footer_height - 1 - font_size, 2), str);
-
-    _ = iv.DrawHorizontalSeparator(0, header_footer_height - 1, iv.ScreenWidth(), iv.HORIZONTAL_SEPARATOR_SOLID);
-
-    _ = iv.PartialUpdate(0, 0, iv.ScreenWidth(), header_footer_height);
+    _ = iv.FillArea(0, 0, iv.ScreenWidth(), title_height, iv.WHITE);
+    _ = iv.DrawTextRect(0, 0, iv.ScreenWidth(), title_height, title_cstring, iv.ALIGN_CENTER | iv.VALIGN_MIDDLE);
+    _ = iv.DrawHorizontalSeparator(0, title_height - 1, iv.ScreenWidth(), iv.HORIZONTAL_SEPARATOR_SOLID);
+    _ = iv.PartialUpdate(0, 0, iv.ScreenWidth(), title_height);
 }
 
 fn libraryDraw(_: ?*anyopaque, item_num: c_int, item_rect: iv.irect, _: c_int, is_touched: c_int) callconv(.c) void {
@@ -314,8 +330,6 @@ fn libraryItemClicked(_: ?*anyopaque, item_num: c_int, _: c_int, _: c_int) callc
     current_pagenumber = @intCast(iv.ReadInt(cfg, name_cstring, 1));
     if (current_pagenumber < 1 or current_pagenumber > current_volume.lastpagenumber) {
         current_pagenumber = 1;
-        iv.WriteInt(cfg, name_cstring, @intCast(current_pagenumber));
-        _ = iv.SaveConfig(cfg);
     }
     displayPage();
 }
@@ -368,7 +382,7 @@ fn tocItemLongClicked(_: ?*anyopaque, _: c_int, _: c_int, _: c_int) callconv(.c)
 
 fn tocScrollPositionChanged(_: ?*anyopaque, _: c_int, _: c_int) callconv(.c) void {}
 
-fn iv_keyboardhandler(text: ?[*:0]u8) callconv(.c) void {
+fn keyboardHandler(text: ?[*:0]u8) callconv(.c) void {
     if (text) |t| {
         const new_pagenumber = std.fmt.parseInt(u32, std.mem.span(t), 10) catch {
             _ = iv.Message(1, "", "error parsing pagenumber", 500);
@@ -382,6 +396,13 @@ fn iv_keyboardhandler(text: ?[*:0]u8) callconv(.c) void {
         displayPage();
     }
 }
+
+fn configHandler() callconv(.c) void {
+    config_editor_visible = false;
+    iv.NotifyConfigChanged();
+}
+
+fn itemChangeHandler(_: [*c]u8) callconv(.c) void {}
 
 pub fn displayPage() void {
     var page = current_volume.textPageData(current_pagenumber) catch {
@@ -400,6 +421,13 @@ pub fn displayPage() void {
     } else {
         iv.FullUpdate();
     }
+}
+
+pub fn saveConfig() void {
+    const name_cstring = std.heap.c_allocator.dupeSentinel(u8, current_volume.name, 0) catch undefined;
+    defer std.heap.c_allocator.free(name_cstring);
+    iv.WriteInt(cfg, name_cstring, @intCast(current_pagenumber));
+    _ = iv.SaveConfig(cfg);
 }
 
 pub fn main() !void {

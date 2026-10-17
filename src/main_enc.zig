@@ -82,7 +82,7 @@ fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(
         iv.EVT_POINTERDOWN => {
             if (param_two > (iv.ScreenHeight() - 100)) {
                 var buffer = std.mem.zeroes([8]u8);
-                _ = iv.OpenKeyboard("", &buffer, 2, iv.KBD_HEX, @ptrCast(&iv_keyboardhandler));
+                _ = iv.OpenKeyboard("", &buffer, 2, iv.KBD_HEX, @ptrCast(&keyboardHandler));
             } else {
                 pointerdown = param_one;
             }
@@ -113,7 +113,7 @@ fn update() void {
     iv.FullUpdate();
 }
 
-fn iv_keyboardhandler(text: ?[*:0]u8) callconv(.c) void {
+fn keyboardHandler(text: ?[*:0]u8) callconv(.c) void {
     if (text) |t| {
         const new_page = std.fmt.parseInt(i32, std.mem.span(t), 16) catch undefined;
         if (new_page < 0 or new_page > std.math.maxInt(@TypeOf(page))) {
