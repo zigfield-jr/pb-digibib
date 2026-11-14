@@ -34,6 +34,6 @@ pub const DBImageSet = struct {
         var images_reader = images_file.reader(io, &images_buffer);
 
         _ = try images_reader.seekTo(address);
-        return try images_reader.interface.readAlloc(allocator, size);
+        return try images_reader.interface.readAllocAll(allocator, size);
     }
 };

@@ -235,7 +235,7 @@ pub const Band = struct {
             page_size -= 2;
         }
 
-        const page_block = try text_reader.interface.readAlloc(std.heap.c_allocator, page_size);
+        const page_block = try text_reader.interface.readAllocAll(std.heap.c_allocator, page_size);
 
         return dbp.DBPage{
             .page_block = page_block,
