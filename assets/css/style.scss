@@ -1,0 +1,14 @@
+---
+---
+
+@import "{{ site.theme }}";
+
+div.markdown-body {
+  padding-top: 16px;
+  outline: 32px solid;
+  border-radius: 1px;
+}
+
+ul.task-list-item {
+  list-style-type: none;
+}

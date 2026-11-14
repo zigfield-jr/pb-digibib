@@ -125,7 +125,7 @@ pub const DBPage = struct {
                             const utf16_string = try std.heap.c_allocator.alloc(u16, _len);
                             defer std.heap.c_allocator.free(utf16_string);
 
-                            while (data[offset] < 0x20 and offset < i + _len - 1 or data[offset] >= 0x20 and offset < i + _len) {
+                            while ((data[offset] < 0x20 and offset < i + _len - 1) or (data[offset] >= 0x20 and offset < i + _len)) {
                                 if (data[offset] < 0x20) {
                                     utf16_string[utf16_string_length] = vlado.toCodepoint(@intCast(data[offset]), data[offset + 1]);
                                     utf16_string_length += 1;

@@ -9,6 +9,10 @@ const border = 32;
 
 var title_height: c_int = 0;
 
+var home: ?*iv.ibitmap = null;
+var home_inv: ?*iv.ibitmap = null;
+const home_rect = iv.irect{ .x = 33, .y = 6, .w = 110, .h = 110 };
+
 const cover_width = 110;
 const cover_height = 155;
 
@@ -49,6 +53,8 @@ fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(
             const properties = iv.LoadApplicationCaptionProperties();
             if (properties != null and properties.*.is_active > 0) {
                 title_height = @intCast(properties.*.title_height);
+                home = iv.GetResource("home", null);
+                home_inv = iv.GetResource("home_inv", null);
             }
 
             const volumes_path = std.fs.path.join(std.heap.c_allocator, &[_][]const u8{ iv.FLASHDIR, "volumes" }) catch undefined;
@@ -112,6 +118,16 @@ fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(
         },
         iv.EVT_POINTERUP, iv.EVT_POINTERDOWN, iv.EVT_POINTERMOVE, iv.EVT_POINTERLONG, iv.EVT_POINTERHOLD, iv.EVT_POINTERDRAG, iv.EVT_POINTERCANCEL, iv.EVT_POINTERCHANGED => {
             if (library_list_visible) {
+                if (title_height > 0 and iv.IsInRect(param_one, param_two, &home_rect) > 0) {
+                    iv.DrawBitmap(home_rect.x, home_rect.y, home_inv);
+                    iv.PartialUpdate(home_rect.x, home_rect.y, home_rect.w, home_rect.h);
+                    iv.SelectionList_Destroy(library_list);
+                    iv.SelectionList_Destroy(toc_list);
+                    iv.CloseConfig(cfg);
+                    iv.CloseApp();
+                    return 0;
+                }
+
                 if (!config_editor_visible and param_two < title_height) {
                     iv.OpenConfigEditor(iv.GetLangText("@Configuration"), cfg, ce.ptr, @ptrCast(&configHandler), &itemChangeHandler);
                     config_editor_visible = true;
@@ -181,10 +197,6 @@ fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(
             switch (param_one) {
                 iv.IV_KEY_MENU => {
                     if (library_list_visible) {
-                        iv.SelectionList_Destroy(library_list);
-                        iv.SelectionList_Destroy(toc_list);
-                        iv.CloseConfig(cfg);
-                        iv.CloseApp();
                         return 0;
                     }
 
@@ -247,6 +259,7 @@ fn DrawLibraryHeader() void {
     }
 
     _ = iv.FillArea(0, 0, iv.ScreenWidth(), title_height, iv.WHITE);
+    iv.DrawBitmap(home_rect.x, home_rect.y, home);
     _ = iv.DrawTextRect(0, 0, iv.ScreenWidth(), title_height, title_cstring, iv.ALIGN_CENTER | iv.VALIGN_MIDDLE);
     _ = iv.DrawHorizontalSeparator(0, title_height - 1, iv.ScreenWidth(), iv.HORIZONTAL_SEPARATOR_SOLID);
     _ = iv.PartialUpdate(0, 0, iv.ScreenWidth(), title_height);
