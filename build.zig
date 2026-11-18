@@ -7,7 +7,7 @@ pub fn build(b: *std.Build) void {
         .cpu_model = .{ .explicit = &std.Target.arm.cpu.cortex_a7 },
         .os_tag = .linux,
         .abi = .gnueabi,
-        .glibc_version = .{ .major = 2, .minor = 25, .patch = 0 }, // std.Io.Threaded.init_single_threaded
+        .glibc_version = .{ .major = 2, .minor = 28, .patch = 0 },
     });
     const optimize = b.standardOptimizeOption(.{});
 
@@ -128,7 +128,7 @@ pub fn main(init: std.process.Init) !void {
     defer install_dir.close(io);
 
     var install_walker = try install_dir.walk(arena);
-    defer install_walker.deinit();
+    defer install_walker.deinit(io);
 
     while (try install_walker.next(io)) |install_entry| {
         switch (install_entry.kind) {

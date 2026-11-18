@@ -13,7 +13,7 @@ pub fn searchForDigiBib(allocator: std.mem.Allocator, absolute_path: []const u8)
     defer mountpoints.close(io);
 
     var volume_iterator = try mountpoints.walkSelectively(std.heap.c_allocator);
-    defer volume_iterator.deinit();
+    defer volume_iterator.deinit(io);
 
     while (try volume_iterator.next(io)) |volume_entry| {
         if (volume_entry.kind != .directory) {
@@ -23,7 +23,7 @@ pub fn searchForDigiBib(allocator: std.mem.Allocator, absolute_path: []const u8)
         var volume_dir = try volume_entry.dir.openDir(io, volume_entry.basename, .{ .iterate = true });
 
         var volume_walker = try volume_dir.walk(std.heap.c_allocator);
-        defer volume_walker.deinit();
+        defer volume_walker.deinit(io);
 
         var data: ?[]u8 = null;
         var digibib_path: ?[]u8 = null;
