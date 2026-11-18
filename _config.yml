@@ -1,0 +1,15 @@
+title: digibib.app
+description: >-
+  PocketBook Digibib reader
+remote_theme: jekyll/minima
+plugins:
+  - jekyll-seo-tag
+  - jekyll-titles-from-headings
+minima:
+  social_links:
+    - title: GitHub
+      icon: github
+      url: "https://github.com/zigfield-jr/pb-digibib"
+  hide_site_feed_link: true
+titles_from_headings:
+  strip_title: true
