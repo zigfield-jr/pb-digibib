@@ -153,7 +153,7 @@ pub fn pager(current_page: u32, total_pages: u32) void {
         .page_width = 400,
         .rigth_width = 100,
         // .separator_size = 1,
-        // .separator_color = c.LGRAY,
+        // .separator_color = iv.LGRAY,
         .icon_left = &icon,
         .icon_right = &icon,
         .current_page = @intCast(current_page),
@@ -173,9 +173,9 @@ pub fn pager(current_page: u32, total_pages: u32) void {
 //     const c_str = std.heap.c_allocator.dupeZ(u8, str) catch undefined;
 //     defer std.heap.c_allocator.free(c_str);
 //
-//     const font = c.OpenFont("DejaVuSans", font_size(0.85), 1);
+//     const font = iv.OpenFont("DejaVuSans", font_size(0.85), 1);
 //     c.SetFont(font, c.BLACK);
-//     _ = c.DrawString(@divTrunc(c.ScreenWidth(), 2) + 300, c.ScreenHeight() - pager_height + @divTrunc(pager_height - font_size(0.85), 2), c_str.ptr);
+//     _ = iv.DrawString(@divTrunc(c.ScreenWidth(), 2) + 300, c.ScreenHeight() - pager_height + @divTrunc(pager_height - font_size(0.85), 2), c_str.ptr);
 //     c.CloseFont(font);
 // }
 

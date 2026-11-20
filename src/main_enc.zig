@@ -82,7 +82,7 @@ fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(
         iv.EVT_POINTERDOWN => {
             if (param_two > (iv.ScreenHeight() - 100)) {
                 var buffer = std.mem.zeroes([8]u8);
-                _ = iv.OpenKeyboard("", &buffer, 2, iv.KBD_HEX, @ptrCast(&keyboardHandler));
+                _ = iv.OpenKeyboard("", &buffer, 2, iv.KBD_HEX, &keyboardHandler);
             } else {
                 pointerdown = param_one;
             }

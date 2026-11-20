@@ -8,6 +8,7 @@ const iv = @import("inkview");
 const border = 32;
 
 var title_height: c_int = 0;
+const pager_height = 96;
 
 var home: ?*iv.ibitmap = null;
 var home_inv: ?*iv.ibitmap = null;
@@ -153,9 +154,9 @@ fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(
             }
 
             if (event_type == iv.EVT_POINTERDOWN) {
-                if (param_two > (iv.ScreenHeight() - title_height)) {
+                if (param_two > (iv.ScreenHeight() - pager_height)) {
                     var buffer = std.mem.zeroes([8]u8);
-                    _ = iv.OpenKeyboard("", &buffer, 6, iv.KBD_NUMERIC, @ptrCast(&keyboardHandler)); // 7 digits
+                    _ = iv.OpenKeyboard("", &buffer, 6, iv.KBD_NUMERIC, &keyboardHandler); // 7 digits
                 } else {
                     current_pagenumber_pointerdown = param_one;
                 }
