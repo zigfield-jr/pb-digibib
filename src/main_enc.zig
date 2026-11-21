@@ -8,6 +8,8 @@ const border = 32;
 var page: u5 = 0;
 var pointerdown: i32 = undefined;
 
+var keyboard_buffer: [8]u8 = undefined;
+
 fn table() void {
     var utf8_char: [4]u8 = undefined;
 
@@ -81,8 +83,7 @@ fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(
         },
         iv.EVT_POINTERDOWN => {
             if (param_two > (iv.ScreenHeight() - 100)) {
-                var buffer = std.mem.zeroes([8]u8);
-                _ = iv.OpenKeyboard("", &buffer, 2, iv.KBD_HEX, &keyboardHandler);
+                _ = iv.OpenKeyboard("", &keyboard_buffer, 2, iv.KBD_HEX, &keyboardHandler);
             } else {
                 pointerdown = param_one;
             }

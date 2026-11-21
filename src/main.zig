@@ -44,6 +44,8 @@ var current_volume: b.Band = undefined;
 var current_pagenumber: u32 = undefined;
 var current_pagenumber_pointerdown: i32 = undefined;
 
+var keyboard_buffer: [8]u8 = undefined;
+
 var ce: []iv.iconfigedit = undefined;
 var cfg: ?*iv.iconfig = null;
 var config_editor_visible = false;
@@ -118,6 +120,15 @@ fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(
             saveConfig();
         },
         iv.EVT_POINTERUP, iv.EVT_POINTERDOWN, iv.EVT_POINTERMOVE, iv.EVT_POINTERLONG, iv.EVT_POINTERHOLD, iv.EVT_POINTERDRAG, iv.EVT_POINTERCANCEL, iv.EVT_POINTERCHANGED => {
+            if (iv.IsKeyboardOpened() > 0) {
+                var keyboard_rect = iv.irect{};
+                iv.GetKeyboardRect(&keyboard_rect);
+                if (iv.IsInRect(param_one, param_two, &keyboard_rect) > 0) {
+                    return 0;
+                }
+                iv.CloseKeyboard();
+            }
+
             if (library_list_visible) {
                 if (title_height > 0 and iv.IsInRect(param_one, param_two, &home_rect) > 0) {
                     iv.DrawBitmap(home_rect.x, home_rect.y, home_inv);
@@ -155,14 +166,13 @@ fn main_handler(event_type: c_int, param_one: c_int, param_two: c_int) callconv(
 
             if (event_type == iv.EVT_POINTERDOWN) {
                 if (param_two > (iv.ScreenHeight() - pager_height)) {
-                    var buffer = std.mem.zeroes([8]u8);
-                    _ = iv.OpenKeyboard("", &buffer, 6, iv.KBD_NUMERIC, &keyboardHandler); // 7 digits
+                    _ = iv.OpenKeyboard("", &keyboard_buffer, 6, iv.KBD_NUMERIC, &keyboardHandler); // 7 digits
                 } else {
                     current_pagenumber_pointerdown = param_one;
                 }
             }
 
-            if (event_type == iv.EVT_POINTERUP and iv.IsKeyboardOpened() == 0) {
+            if (event_type == iv.EVT_POINTERUP) {
                 const current_pagenumber_pointerup: i32 = param_one;
                 const delta = current_pagenumber_pointerdown - current_pagenumber_pointerup;
                 if (@abs(delta) < 100) {
